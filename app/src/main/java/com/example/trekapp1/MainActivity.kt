@@ -12,6 +12,7 @@ import androidx.navigation.ui.setupWithNavController
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.app.AppCompatActivity
 import com.example.trekapp1.databinding.ActivityMainBinding
+import com.google.android.gms.location.LocationServices
 
 class MainActivity : AppCompatActivity() {
 

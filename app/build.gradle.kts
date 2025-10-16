@@ -40,6 +40,12 @@ android {
 
 dependencies {
 
+    // dependency of Health Connect SDK
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha11")
+
+    //dependency of google play services' location
+    implementation("com.google.android.gms:play-services-location:18.0.0")
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
