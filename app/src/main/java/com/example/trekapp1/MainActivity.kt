@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -59,6 +60,7 @@ fun MainScreen() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var selectedScreen by remember { mutableStateOf(Screen.Dashboard) }
+    var isTracking by remember { mutableStateOf(false) }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -75,10 +77,12 @@ fun MainScreen() {
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { Text(selectedScreen.title) },
+                        title = { Text(if (isTracking) "Tracking Run" else selectedScreen.title) },
                         navigationIcon = {
                             IconButton(onClick = {
-                                scope.launch { drawerState.open() }
+                                if (!isTracking) {
+                                    scope.launch { drawerState.open() }
+                                }
                             }) {
                                 Icon(Icons.Default.Menu, "Menu")
                             }
@@ -95,10 +99,16 @@ fun MainScreen() {
                         .padding(padding)
                         .background(DarkBackground)
                 ) {
-                    when (selectedScreen) {
-                        Screen.Dashboard -> DashboardView()
-                        Screen.Activities -> ActivitiesView()
-                        Screen.Avatars -> AvatarsView()
+                    if (isTracking) {
+                        RunTrackingScreen(
+                            onStopTracking = { isTracking = false }
+                        )
+                    } else {
+                        when (selectedScreen) {
+                            Screen.Dashboard -> DashboardView(onStartRun = { isTracking = true })
+                            Screen.Activities -> ActivitiesView()
+                            Screen.Avatars -> AvatarsView()
+                        }
                     }
                 }
             }
@@ -144,7 +154,7 @@ fun NavigationDrawerContent(
         }
 
         Text(
-            "Running App",
+            "Trek",
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp),
@@ -174,7 +184,7 @@ fun NavigationDrawerContent(
 }
 
 @Composable
-fun DashboardView() {
+fun DashboardView(onStartRun: () -> Unit = {}) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -227,7 +237,7 @@ fun DashboardView() {
 
         // Start Run Button
         Button(
-            onClick = { },
+            onClick = onStartRun,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(60.dp),
@@ -514,6 +524,315 @@ fun AvatarItem(modifier: Modifier, name: String, icon: ImageVector) {
             )
         }
     }
+}
+
+// Run Tracking Data Class
+data class RunData(
+    val elapsedTimeSeconds: Int = 0,
+    val distanceKm: Float = 0f,
+    val caloriesBurned: Int = 0,
+    val isRunning: Boolean = false,
+    val isPaused: Boolean = false
+)
+
+@Composable
+fun RunTrackingScreen(onStopTracking: () -> Unit) {
+    var runData by remember { mutableStateOf(RunData()) }
+    val scope = rememberCoroutineScope()
+
+    // Timer effect
+    LaunchedEffect(runData.isRunning, runData.isPaused) {
+        if (runData.isRunning && !runData.isPaused) {
+            while (true) {
+                delay(1000L)
+                runData = runData.copy(
+                    elapsedTimeSeconds = runData.elapsedTimeSeconds + 1,
+                    // Simulate distance increase (adjust based on your needs)
+                    // Average running speed: ~10 km/h = 0.00278 km/s
+                    distanceKm = runData.distanceKm + 0.00278f,
+                    // Simulate calorie burn (adjust based on your needs)
+                    // Average: ~60 calories per km
+                    caloriesBurned = (runData.distanceKm * 60).toInt()
+                )
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Large Timer Display
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = CardBackground
+            ),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "Time",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    formatTime(runData.elapsedTimeSeconds),
+                    style = MaterialTheme.typography.displayLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = CoralPink
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Stats Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            RunStatCard(
+                modifier = Modifier.weight(1f),
+                title = "Distance",
+                value = String.format("%.2f", runData.distanceKm),
+                unit = "km",
+                icon = Icons.Default.DirectionsRun
+            )
+            RunStatCard(
+                modifier = Modifier.weight(1f),
+                title = "Calories",
+                value = runData.caloriesBurned.toString(),
+                unit = "kcal",
+                icon = Icons.Default.LocalFireDepartment
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Pace Display
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = CardBackground
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Speed,
+                        contentDescription = null,
+                        tint = CoralPink,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        "Current Pace",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                }
+                Text(
+                    calculatePace(runData.distanceKm, runData.elapsedTimeSeconds),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        // Control Buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Start/Pause Button
+            Button(
+                onClick = {
+                    if (!runData.isRunning) {
+                        runData = runData.copy(isRunning = true, isPaused = false)
+                    } else {
+                        runData = runData.copy(isPaused = !runData.isPaused)
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(60.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Transparent
+                ),
+                contentPadding = PaddingValues()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(CoralOrange, CoralPink)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            if (!runData.isRunning || runData.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Text(
+                            if (!runData.isRunning) "Start" else if (runData.isPaused) "Resume" else "Pause",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Stop Button
+            Button(
+                onClick = {
+                    // Here you would save the run data to your database
+                    // Example:
+                    // scope.launch {
+                    //     database.insertRun(
+                    //         distance = runData.distanceKm,
+                    //         duration = runData.elapsedTimeSeconds,
+                    //         calories = runData.caloriesBurned,
+                    //         pace = calculatePace(runData.distanceKm, runData.elapsedTimeSeconds)
+                    //     )
+                    // }
+                    onStopTracking()
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(60.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CardBackground
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Stop,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = CoralPink
+                    )
+                    Text(
+                        "Finish",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun RunStatCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    unit: String,
+    icon: ImageVector
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = CardBackground
+        ),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = CoralPink,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Text(
+                    value,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    unit,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+        }
+    }
+}
+
+// Helper Functions
+fun formatTime(seconds: Int): String {
+    val hours = seconds / 3600
+    val minutes = (seconds % 3600) / 60
+    val secs = seconds % 60
+    return if (hours > 0) {
+        String.format("%d:%02d:%02d", hours, minutes, secs)
+    } else {
+        String.format("%02d:%02d", minutes, secs)
+    }
+}
+
+fun calculatePace(distanceKm: Float, timeSeconds: Int): String {
+    if (distanceKm == 0f) return "--:--"
+    val paceSecondsPerKm = timeSeconds / distanceKm
+    val minutes = (paceSecondsPerKm / 60).toInt()
+    val seconds = (paceSecondsPerKm % 60).toInt()
+    return String.format("%d:%02d", minutes, seconds)
 }
 
 enum class Screen(val title: String, val icon: ImageVector) {
