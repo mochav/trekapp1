@@ -32,6 +32,9 @@ import com.google.android.gms.maps.MapView
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
 import kotlinx.coroutines.launch
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,7 +71,7 @@ data class Avatar(
     val id: String,
     val name: String,
     val price: Int,
-    val icon: ImageVector  // Using Material Icons as placeholders for avatars
+    val imageResId: Int   // points to R.drawable.whatever
 )
 
 data class UserAvatarProfile(
@@ -683,17 +686,18 @@ fun AvatarsView() {
     // Define available avatars (using Material Icons as placeholders)
     val avatars = remember {
         listOf(
-            Avatar("trail_runner", "Trail Runner", 0, Icons.Default.DirectionsRun),
-            Avatar("night_sprinter", "Night Sprinter", 300, Icons.Default.Nightlight),
-            Avatar("mountain_climber", "Mountain Climber", 500, Icons.Default.Terrain),
-            Avatar("speed_demon", "Speed Demon", 750, Icons.Default.ElectricBolt),
-            Avatar("zen_jogger", "Zen Jogger", 1000, Icons.Default.SelfImprovement),
-            Avatar("cyber_runner", "Cyber Runner", 1250, Icons.Default.Computer),
-            Avatar("forest_guardian", "Forest Guardian", 1500, Icons.Default.Park),
-            Avatar("urban_explorer", "Urban Explorer", 2000, Icons.Default.LocationCity),
-            Avatar("desert_nomad", "Desert Nomad", 2500, Icons.Default.WbSunny)
+            Avatar("trail_runner",    "Trail Runner",    0,    R.drawable.bigrun),
+            Avatar("night_sprinter",  "Night Sprinter",  300,  R.drawable.imwalkin),
+            Avatar("mountain_climber","Mountain Climber",500,  R.drawable.plane),
+            Avatar("speed_demon",     "Speed Demon",     750,  R.drawable.kingrun),
+            Avatar("zen_jogger",      "Zen Jogger",      1000, R.drawable.partner),
+            Avatar("cyber_runner",    "Cyber Runner",    1250, R.drawable.blackwhiterunner),
+            Avatar("forest_guardian", "Forest Guardian", 1500, R.drawable.apple),
+            Avatar("urban_explorer",  "Urban Explorer",  2000, R.drawable.shoe),
+            Avatar("desert_nomad",    "Desert Nomad",    2500, R.drawable.mustacherunner),
         )
     }
+
 
     // User profile state (temporary local state - will be replaced with backend later)
     var userProfile by remember {
@@ -862,11 +866,13 @@ fun AvatarCard(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        avatar.icon,
+                    Image(
+                        painter = painterResource(id = avatar.imageResId),
                         contentDescription = avatar.name,
-                        modifier = Modifier.size(28.dp),
-                        tint = if (isUnlocked) Color.White else Color.Gray
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
                     )
                 }
 
