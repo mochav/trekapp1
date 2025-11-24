@@ -63,6 +63,20 @@ val CoralPink = Color(0xFFFF6B9D)
 val DarkBackground = Color(0xFF1A1A1A)
 val CardBackground = Color(0xFF2A2A2A)
 
+// ==================== AVATAR DATA MODELS ====================
+data class Avatar(
+    val id: String,
+    val name: String,
+    val price: Int,
+    val icon: ImageVector  // Using Material Icons as placeholders for avatars
+)
+
+data class UserAvatarProfile(
+    var coins: Int,
+    val unlockedAvatarIds: MutableSet<String>,
+    var selectedAvatarId: String?
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
@@ -663,20 +677,299 @@ fun ActivitiesView() {
     }
 }
 
+// ==================== AVATAR SHOP SCREEN ====================
 @Composable
 fun AvatarsView() {
-    Box(
+    // Define available avatars (using Material Icons as placeholders)
+    val avatars = remember {
+        listOf(
+            Avatar("trail_runner", "Trail Runner", 0, Icons.Default.DirectionsRun),
+            Avatar("night_sprinter", "Night Sprinter", 300, Icons.Default.Nightlight),
+            Avatar("mountain_climber", "Mountain Climber", 500, Icons.Default.Terrain),
+            Avatar("speed_demon", "Speed Demon", 750, Icons.Default.ElectricBolt),
+            Avatar("zen_jogger", "Zen Jogger", 1000, Icons.Default.SelfImprovement),
+            Avatar("cyber_runner", "Cyber Runner", 1250, Icons.Default.Computer),
+            Avatar("forest_guardian", "Forest Guardian", 1500, Icons.Default.Park),
+            Avatar("urban_explorer", "Urban Explorer", 2000, Icons.Default.LocationCity),
+            Avatar("desert_nomad", "Desert Nomad", 2500, Icons.Default.WbSunny)
+        )
+    }
+
+    // User profile state (temporary local state - will be replaced with backend later)
+    var userProfile by remember {
+        mutableStateOf(
+            UserAvatarProfile(
+                coins = 1500,  // Starting coins for testing
+                unlockedAvatarIds = mutableSetOf("trail_runner"),  // First avatar unlocked by default
+                selectedAvatarId = "trail_runner"
+            )
+        )
+    }
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(DarkBackground)
             .padding(16.dp)
     ) {
+        // Header
         Text(
-            "Avatar Shop - Coming Soon!",
+            "Avatar Shop",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
-            modifier = Modifier.align(Alignment.Center)
+            color = Color.White
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            "Earn coins by walking and running to unlock new avatars",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.7f)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Coins Display Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = CardBackground),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        "Your Coins",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.7f)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "${userProfile.coins}",
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = CoralPink
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(CoralOrange, CoralPink)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
+                        tint = Color.White
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Avatar Grid
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            items(avatars.size) { index ->
+                AvatarCard(
+                    avatar = avatars[index],
+                    isUnlocked = avatars[index].id in userProfile.unlockedAvatarIds,
+                    isSelected = avatars[index].id == userProfile.selectedAvatarId,
+                    canAfford = userProfile.coins >= avatars[index].price,
+                    onAvatarClick = {
+                        handleAvatarClick(
+                            avatar = avatars[index],
+                            userProfile = userProfile,
+                            onProfileUpdate = { updatedProfile ->
+                                userProfile = updatedProfile
+                            }
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AvatarCard(
+    avatar: Avatar,
+    isUnlocked: Boolean,
+    isSelected: Boolean,
+    canAfford: Boolean,
+    onAvatarClick: () -> Unit
+) {
+    Card(
+        onClick = onAvatarClick,
+        enabled = isUnlocked || canAfford,
+        modifier = Modifier.aspectRatio(1f),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                CoralPink.copy(alpha = 0.3f)
+            } else {
+                CardBackground
+            }
+        ),
+        shape = RoundedCornerShape(16.dp),
+        border = if (isSelected) {
+            androidx.compose.foundation.BorderStroke(2.dp, CoralPink)
+        } else null
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(8.dp)
+            ) {
+                // Avatar Icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isUnlocked) {
+                                Brush.linearGradient(
+                                    colors = listOf(CoralOrange, CoralPink)
+                                )
+                            } else {
+                                Brush.linearGradient(
+                                    colors = listOf(
+                                        Color.Gray.copy(alpha = 0.3f),
+                                        Color.Gray.copy(alpha = 0.5f)
+                                    )
+                                )
+                            }
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        avatar.icon,
+                        contentDescription = avatar.name,
+                        modifier = Modifier.size(28.dp),
+                        tint = if (isUnlocked) Color.White else Color.Gray
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Avatar Name
+                Text(
+                    avatar.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isUnlocked) Color.White else Color.Gray,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    maxLines = 2,
+                    fontSize = 11.sp
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Price or Status
+                if (!isUnlocked) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Star,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = if (canAfford) CoralPink else Color.Gray
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            "${avatar.price}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (canAfford) CoralPink else Color.Gray,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                    }
+                } else if (isSelected) {
+                    Text(
+                        "EQUIPPED",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = CoralPink,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp
+                    )
+                } else {
+                    Text(
+                        "Unlocked",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.6f),
+                        fontSize = 10.sp
+                    )
+                }
+            }
+
+            // Lock overlay for locked & unaffordable avatars
+            if (!isUnlocked && !canAfford) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = "Locked",
+                        modifier = Modifier.size(32.dp),
+                        tint = Color.Gray
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Handle avatar click logic
+fun handleAvatarClick(
+    avatar: Avatar,
+    userProfile: UserAvatarProfile,
+    onProfileUpdate: (UserAvatarProfile) -> Unit
+) {
+    val isUnlocked = avatar.id in userProfile.unlockedAvatarIds
+    val canAfford = userProfile.coins >= avatar.price
+
+    when {
+        // If already unlocked, equip it
+        isUnlocked -> {
+            userProfile.selectedAvatarId = avatar.id
+            onProfileUpdate(userProfile.copy())
+        }
+        // If locked but affordable, unlock it
+        canAfford -> {
+            userProfile.coins -= avatar.price
+            userProfile.unlockedAvatarIds.add(avatar.id)
+            userProfile.selectedAvatarId = avatar.id  // Auto-equip after unlock
+            onProfileUpdate(userProfile.copy())
+        }
+        // If locked and not affordable, do nothing (or show a message)
+        else -> {
+            // Could add a Snackbar/Toast here later
+        }
     }
 }
 
