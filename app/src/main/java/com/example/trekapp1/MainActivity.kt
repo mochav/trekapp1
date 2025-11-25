@@ -31,6 +31,8 @@ import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapView
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.example.trekapp1.TrekFirebase.isUserLoggedIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.Image
@@ -39,6 +41,18 @@ import androidx.compose.ui.layout.ContentScale
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        /* Can use this to add login screen before main screen if not already logged in
+        if (!isUserLoggedIn())
+        {
+            // sends to login page if not already signed in
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish() // Prevent returning to this activity
+            return
+        }
+        */
+
         setContent {
             RunningAppTheme {
                 MainScreen()
@@ -86,7 +100,7 @@ fun MainScreen() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var selectedScreen by remember { mutableStateOf(Screen.Dashboard) }
-    var isTrackingSession by remember { mutableStateOf(false) }
+    var isTracking by remember { mutableStateOf(false) }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -368,6 +382,7 @@ fun NavigationDrawerContent(
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
+        // App Logo/Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -395,7 +410,7 @@ fun NavigationDrawerContent(
         }
 
         Text(
-            "Running App",
+            "Trek",
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp),
