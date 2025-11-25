@@ -1,5 +1,6 @@
 package com.example.trekapp1
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -21,12 +22,25 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.trekfirebase.TrekFirebase.isUserLoggedIn
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        /* Can use this to add login screen before main screen if not already logged in
+        if (!isUserLoggedIn())
+        {
+            // sends to login page if not already signed in
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish() // Prevent returning to this activity
+            return
+        }
+        */
+
         setContent {
             RunningAppTheme {
                 MainScreen()
