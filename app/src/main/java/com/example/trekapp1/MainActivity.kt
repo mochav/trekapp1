@@ -178,7 +178,7 @@ fun MainScreen(healthConnectManager: HealthConnectManager) {
                         )
                     } else {
                         when (selectedScreen) {
-                            Screen.Dashboard -> DashboardView(steps = todaySteps, calories = todayCalories, onStartRun = { isTracking = true })
+                            Screen.Dashboard -> DashboardView(steps = todaySteps, calories = todayCalories, onStartRun = { isTrackingSession = true })
                             Screen.Activities -> ActivitiesView()
                             Screen.Avatars -> AvatarsView()
                         }
