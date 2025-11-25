@@ -100,7 +100,7 @@ fun MainScreen() {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var selectedScreen by remember { mutableStateOf(Screen.Dashboard) }
-    var isTracking by remember { mutableStateOf(false) }
+    var isTrackingSession by remember { mutableStateOf(false) }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
