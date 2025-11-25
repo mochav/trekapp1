@@ -569,7 +569,7 @@ fun DashboardView(steps: Long?, calories: Double?, onStartRun: () -> Unit = {}) 
         )
 
         Spacer(modifier = Modifier.height(12.dp))
-
+        //TODO: update these activities cards with data
         ActivityCard(
             date = "Today, 8:30 AM",
             distance = "5.2 km",
