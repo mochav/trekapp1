@@ -2,6 +2,7 @@ package com.example.trekapp1
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,15 +22,22 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.health.connect.client.HealthConnectClient
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.delay
+import androidx.health.connect.client.PermissionController
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private lateinit var healthConnectManager: HealthConnectManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        healthConnectManager = HealthConnectManager(this)
+
         setContent {
             RunningAppTheme {
-                MainScreen()
+                MainScreen(healthConnectManager)
             }
         }
     }
@@ -56,11 +64,31 @@ val CardBackground = Color(0xFF2A2A2A)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(healthConnectManager: HealthConnectManager) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var selectedScreen by remember { mutableStateOf(Screen.Dashboard) }
     var isTracking by remember { mutableStateOf(false) }
+
+    var hasPermissions by remember { mutableStateOf<Boolean?>(null) }
+    var todaySteps by remember { mutableStateOf<Long?>(null) }
+    var todayCalories by remember { mutableStateOf<Double?>(null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract()
+    ) { grantedPermissions: Set<String> ->
+        hasPermissions = grantedPermissions.containsAll(healthConnectManager.permissions)
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            todaySteps = healthConnectManager.readTodaySteps()
+            todayCalories = healthConnectManager.readTodayCalories()
+        } catch (e: Exception) {
+            // TODO: log or show error; just left null rn
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -105,7 +133,7 @@ fun MainScreen() {
                         )
                     } else {
                         when (selectedScreen) {
-                            Screen.Dashboard -> DashboardView(onStartRun = { isTracking = true })
+                            Screen.Dashboard -> DashboardView(steps = todaySteps, calories = todayCalories, onStartRun = { isTracking = true })
                             Screen.Activities -> ActivitiesView()
                             Screen.Avatars -> AvatarsView()
                         }
@@ -184,7 +212,10 @@ fun NavigationDrawerContent(
 }
 
 @Composable
-fun DashboardView(onStartRun: () -> Unit = {}) {
+fun DashboardView(steps: Long?, calories: Double?, onStartRun: () -> Unit = {}) {
+    val stepsText = steps?.toString() ?: "--" //default -- if no steps that day
+    val caloriesText = calories?.let { String.format("%.0f", it) } ?: "--" //default -- if noting done that day
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -204,10 +235,10 @@ fun DashboardView(onStartRun: () -> Unit = {}) {
             )
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Time",
-                value = "2:15",
-                unit = "hrs",
-                icon = Icons.Default.Timer
+                title = "Steps",
+                value = stepsText,
+                unit = "steps",
+                icon = Icons.Default.Man
             )
         }
 
@@ -220,7 +251,7 @@ fun DashboardView(onStartRun: () -> Unit = {}) {
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = "Calories",
-                value = "1,245",
+                value = caloriesText,
                 unit = "kcal",
                 icon = Icons.Default.LocalFireDepartment
             )
