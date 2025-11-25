@@ -1,4 +1,4 @@
-package com.example.trekfirebase
+package com.example.trekapp1
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
