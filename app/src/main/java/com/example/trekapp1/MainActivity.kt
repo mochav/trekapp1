@@ -25,23 +25,44 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.health.connect.client.HealthConnectClient
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.ui.viewinterop.AndroidView
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.MapView
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.example.trekapp1.TrekFirebase.isUserLoggedIn
+import kotlinx.coroutines.delay
+import androidx.health.connect.client.PermissionController
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
 
 class MainActivity : ComponentActivity() {
+    private lateinit var healthConnectManager: HealthConnectManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        healthConnectManager = HealthConnectManager(this)
+
+
+        /* Can use this to add login screen before main screen if not already logged in
+        if (!isUserLoggedIn())
+        {
+            // sends to login page if not already signed in
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish() // Prevent returning to this activity
+            return
+        }
+        */
+
         setContent {
             RunningAppTheme {
-                MainScreen()
+                MainScreen(healthConnectManager)
             }
         }
     }
@@ -82,11 +103,31 @@ data class UserAvatarProfile(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen() {
+fun MainScreen(healthConnectManager: HealthConnectManager) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     var selectedScreen by remember { mutableStateOf(Screen.Dashboard) }
     var isTrackingSession by remember { mutableStateOf(false) }
+
+    var hasPermissions by remember { mutableStateOf<Boolean?>(null) }
+    var todaySteps by remember { mutableStateOf<Long?>(null) }
+    var todayCalories by remember { mutableStateOf<Double?>(null) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract()
+    ) { grantedPermissions: Set<String> ->
+        hasPermissions = grantedPermissions.containsAll(healthConnectManager.permissions)
+    }
+
+    LaunchedEffect(Unit) {
+        try {
+            todaySteps = healthConnectManager.readTodaySteps()
+            todayCalories = healthConnectManager.readTodayCalories()
+        } catch (e: Exception) {
+            // TODO: log or show error; just left null rn
+        }
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -137,9 +178,7 @@ fun MainScreen() {
                         )
                     } else {
                         when (selectedScreen) {
-                            Screen.Dashboard -> DashboardView(
-                                onStartRun = { isTrackingSession = true }
-                            )
+                            Screen.Dashboard -> DashboardView(steps = todaySteps, calories = todayCalories, onStartRun = { isTrackingSession = true })
                             Screen.Activities -> ActivitiesView()
                             Screen.Avatars -> AvatarsView()
                         }
@@ -368,6 +407,7 @@ fun NavigationDrawerContent(
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
+        // App Logo/Header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -395,7 +435,7 @@ fun NavigationDrawerContent(
         }
 
         Text(
-            "Running App",
+            "Trek",
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp),
@@ -424,12 +464,16 @@ fun NavigationDrawerContent(
 }
 
 @Composable
-fun DashboardView(onStartRun: () -> Unit) {
+fun DashboardView(steps: Long?, calories: Double?, onStartRun: () -> Unit = {}) {
+    val stepsText = steps?.toString() ?: "--" //default -- if no steps that day
+    val caloriesText = calories?.let { String.format("%.0f", it) } ?: "--" //default -- if noting done that day
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        // Stats Cards
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -443,10 +487,10 @@ fun DashboardView(onStartRun: () -> Unit) {
             )
             StatCard(
                 modifier = Modifier.weight(1f),
-                title = "Time",
-                value = "2:15",
-                unit = "hrs",
-                icon = Icons.Default.Timer
+                title = "Steps",
+                value = stepsText,
+                unit = "steps",
+                icon = Icons.Default.Man
             )
         }
 
@@ -459,7 +503,7 @@ fun DashboardView(onStartRun: () -> Unit) {
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = "Calories",
-                value = "1,245",
+                value = caloriesText,
                 unit = "kcal",
                 icon = Icons.Default.LocalFireDepartment
             )
@@ -474,6 +518,7 @@ fun DashboardView(onStartRun: () -> Unit) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Start Run Button
         Button(
             onClick = onStartRun,
             modifier = Modifier
@@ -515,6 +560,7 @@ fun DashboardView(onStartRun: () -> Unit) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Recent Activities Section
         Text(
             "Recent Activities",
             style = MaterialTheme.typography.titleLarge,
@@ -668,6 +714,7 @@ fun ActivitiesView() {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Sample activities
         repeat(5) { index ->
             ActivityCard(
                 date = "${5 - index} days ago",

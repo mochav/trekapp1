@@ -1,0 +1,428 @@
+Index: app/src/main/java/com/example/trekapp1/MainActivity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.trekapp1\n\nimport android.os.Bundle\nimport androidx.activity.ComponentActivity\nimport androidx.activity.compose.setContent\nimport androidx.compose.foundation.background\nimport androidx.compose.foundation.clickable\nimport androidx.compose.foundation.layout.*\nimport androidx.compose.foundation.shape.CircleShape\nimport androidx.compose.foundation.shape.RoundedCornerShape\nimport androidx.compose.material.icons.Icons\nimport androidx.compose.material.icons.filled.*\nimport androidx.compose.material3.*\nimport androidx.compose.runtime.*\nimport androidx.compose.ui.Alignment\nimport androidx.compose.ui.Modifier\nimport androidx.compose.ui.draw.clip\nimport androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.vector.ImageVector\nimport androidx.compose.ui.text.font.FontWeight\nimport androidx.compose.ui.unit.dp\nimport androidx.compose.ui.unit.sp\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.launch\n\nclass MainActivity : ComponentActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        setContent {\n            RunningAppTheme {\n                MainScreen()\n            }\n        }\n    }\n}\n\n@Composable\nfun RunningAppTheme(content: @Composable () -> Unit) {\n    MaterialTheme(\n        colorScheme = darkColorScheme(\n            primary = CoralPink,\n            secondary = CoralOrange,\n            background = DarkBackground,\n            surface = CardBackground\n        ),\n        content = content\n    )\n}\n\n// Color Scheme\nval CoralOrange = Color(0xFFFFA07A)\nval CoralPink = Color(0xFFFF6B9D)\nval DarkBackground = Color(0xFF1A1A1A)\nval CardBackground = Color(0xFF2A2A2A)\n\n@OptIn(ExperimentalMaterial3Api::class)\n@Composable\nfun MainScreen() {\n    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)\n    val scope = rememberCoroutineScope()\n    var selectedScreen by remember { mutableStateOf(Screen.Dashboard) }\n    var isTracking by remember { mutableStateOf(false) }\n\n    ModalNavigationDrawer(\n        drawerState = drawerState,\n        drawerContent = {\n            NavigationDrawerContent(\n                selectedScreen = selectedScreen,\n                onScreenSelected = { screen ->\n                    selectedScreen = screen\n                    scope.launch { drawerState.close() }\n                }\n            )\n        },\n        content = {\n            Scaffold(\n                topBar = {\n                    TopAppBar(\n                        title = { Text(if (isTracking) \"Tracking Run\" else selectedScreen.title) },\n                        navigationIcon = {\n                            IconButton(onClick = {\n                                if (!isTracking) {\n                                    scope.launch { drawerState.open() }\n                                }\n                            }) {\n                                Icon(Icons.Default.Menu, \"Menu\")\n                            }\n                        },\n                        colors = TopAppBarDefaults.topAppBarColors(\n                            containerColor = CardBackground\n                        )\n                    )\n                }\n            ) { padding ->\n                Box(\n                    modifier = Modifier\n                        .fillMaxSize()\n                        .padding(padding)\n                        .background(DarkBackground)\n                ) {\n                    if (isTracking) {\n                        RunTrackingScreen(\n                            onStopTracking = { isTracking = false }\n                        )\n                    } else {\n                        when (selectedScreen) {\n                            Screen.Dashboard -> DashboardView(onStartRun = { isTracking = true })\n                            Screen.Activities -> ActivitiesView()\n                            Screen.Avatars -> AvatarsView()\n                        }\n                    }\n                }\n            }\n        }\n    )\n}\n\n@Composable\nfun NavigationDrawerContent(\n    selectedScreen: Screen,\n    onScreenSelected: (Screen) -> Unit\n) {\n    ModalDrawerSheet(\n        drawerContainerColor = CardBackground\n    ) {\n        Spacer(modifier = Modifier.height(24.dp))\n\n        // App Logo/Header\n        Box(\n            modifier = Modifier\n                .fillMaxWidth()\n                .padding(24.dp),\n            contentAlignment = Alignment.Center\n        ) {\n            Box(\n                modifier = Modifier\n                    .size(80.dp)\n                    .clip(RoundedCornerShape(20.dp))\n                    .background(\n                        Brush.linearGradient(\n                            colors = listOf(CoralOrange, CoralPink)\n                        )\n                    ),\n                contentAlignment = Alignment.Center\n            ) {\n                Icon(\n                    Icons.Default.DirectionsRun,\n                    contentDescription = null,\n                    modifier = Modifier.size(48.dp),\n                    tint = Color.White\n                )\n            }\n        }\n\n        Text(\n            \"Trek\",\n            modifier = Modifier\n                .fillMaxWidth()\n                .padding(horizontal = 24.dp),\n            style = MaterialTheme.typography.headlineSmall,\n            fontWeight = FontWeight.Bold,\n            color = Color.White\n        )\n\n        Spacer(modifier = Modifier.height(32.dp))\n\n        // Navigation Items\n        Screen.values().forEach { screen ->\n            NavigationDrawerItem(\n                icon = { Icon(screen.icon, contentDescription = null) },\n                label = { Text(screen.title) },\n                selected = selectedScreen == screen,\n                onClick = { onScreenSelected(screen) },\n                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),\n                colors = NavigationDrawerItemDefaults.colors(\n                    selectedContainerColor = CoralPink.copy(alpha = 0.2f),\n                    selectedIconColor = CoralPink,\n                    selectedTextColor = CoralPink\n                )\n            )\n        }\n    }\n}\n\n@Composable\nfun DashboardView(onStartRun: () -> Unit = {}) {\n    Column(\n        modifier = Modifier\n            .fillMaxSize()\n            .padding(16.dp)\n    ) {\n        // Stats Cards\n        Row(\n            modifier = Modifier.fillMaxWidth(),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {\n            StatCard(\n                modifier = Modifier.weight(1f),\n                title = \"Distance\",\n                value = \"24.5\",\n                unit = \"km\",\n                icon = Icons.Default.DirectionsRun\n            )\n            StatCard(\n                modifier = Modifier.weight(1f),\n                title = \"Time\",\n                value = \"2:15\",\n                unit = \"hrs\",\n                icon = Icons.Default.Timer\n            )\n        }\n\n        Spacer(modifier = Modifier.height(12.dp))\n\n        Row(\n            modifier = Modifier.fillMaxWidth(),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {\n            StatCard(\n                modifier = Modifier.weight(1f),\n                title = \"Calories\",\n                value = \"1,245\",\n                unit = \"kcal\",\n                icon = Icons.Default.LocalFireDepartment\n            )\n            StatCard(\n                modifier = Modifier.weight(1f),\n                title = \"Pace\",\n                value = \"5:32\",\n                unit = \"min/km\",\n                icon = Icons.Default.Speed\n            )\n        }\n\n        Spacer(modifier = Modifier.height(24.dp))\n\n        // Start Run Button\n        Button(\n            onClick = onStartRun,\n            modifier = Modifier\n                .fillMaxWidth()\n                .height(60.dp),\n            colors = ButtonDefaults.buttonColors(\n                containerColor = Color.Transparent\n            ),\n            contentPadding = PaddingValues()\n        ) {\n            Box(\n                modifier = Modifier\n                    .fillMaxSize()\n                    .background(\n                        Brush.linearGradient(\n                            colors = listOf(CoralOrange, CoralPink)\n                        ),\n                        shape = RoundedCornerShape(12.dp)\n                    ),\n                contentAlignment = Alignment.Center\n            ) {\n                Row(\n                    verticalAlignment = Alignment.CenterVertically,\n                    horizontalArrangement = Arrangement.spacedBy(8.dp)\n                ) {\n                    Icon(\n                        Icons.Default.PlayArrow,\n                        contentDescription = null,\n                        modifier = Modifier.size(32.dp)\n                    )\n                    Text(\n                        \"Start Run\",\n                        fontSize = 20.sp,\n                        fontWeight = FontWeight.Bold\n                    )\n                }\n            }\n        }\n\n        Spacer(modifier = Modifier.height(24.dp))\n\n        // Recent Activities Section\n        Text(\n            \"Recent Activities\",\n            style = MaterialTheme.typography.titleLarge,\n            fontWeight = FontWeight.Bold,\n            color = Color.White\n        )\n\n        Spacer(modifier = Modifier.height(12.dp))\n\n        ActivityCard(\n            date = \"Today, 8:30 AM\",\n            distance = \"5.2 km\",\n            duration = \"28:15\",\n            pace = \"5:25 min/km\"\n        )\n\n        Spacer(modifier = Modifier.height(8.dp))\n\n        ActivityCard(\n            date = \"Yesterday, 7:00 AM\",\n            distance = \"7.8 km\",\n            duration = \"42:30\",\n            pace = \"5:27 min/km\"\n        )\n    }\n}\n\n@Composable\nfun StatCard(\n    modifier: Modifier = Modifier,\n    title: String,\n    value: String,\n    unit: String,\n    icon: ImageVector\n) {\n    Card(\n        modifier = modifier,\n        colors = CardDefaults.cardColors(\n            containerColor = CardBackground\n        ),\n        shape = RoundedCornerShape(16.dp)\n    ) {\n        Column(\n            modifier = Modifier.padding(16.dp)\n        ) {\n            Row(\n                modifier = Modifier.fillMaxWidth(),\n                horizontalArrangement = Arrangement.SpaceBetween,\n                verticalAlignment = Alignment.CenterVertically\n            ) {\n                Text(\n                    title,\n                    style = MaterialTheme.typography.bodyMedium,\n                    color = Color.White.copy(alpha = 0.7f)\n                )\n                Icon(\n                    icon,\n                    contentDescription = null,\n                    tint = CoralPink,\n                    modifier = Modifier.size(20.dp)\n                )\n            }\n            Spacer(modifier = Modifier.height(8.dp))\n            Row(\n                verticalAlignment = Alignment.Bottom\n            ) {\n                Text(\n                    value,\n                    style = MaterialTheme.typography.headlineMedium,\n                    fontWeight = FontWeight.Bold,\n                    color = Color.White\n                )\n                Spacer(modifier = Modifier.width(4.dp))\n                Text(\n                    unit,\n                    style = MaterialTheme.typography.bodySmall,\n                    color = Color.White.copy(alpha = 0.6f),\n                    modifier = Modifier.padding(bottom = 4.dp)\n                )\n            }\n        }\n    }\n}\n\n@Composable\nfun ActivityCard(\n    date: String,\n    distance: String,\n    duration: String,\n    pace: String\n) {\n    Card(\n        modifier = Modifier.fillMaxWidth(),\n        colors = CardDefaults.cardColors(\n            containerColor = CardBackground\n        ),\n        shape = RoundedCornerShape(12.dp)\n    ) {\n        Row(\n            modifier = Modifier\n                .fillMaxWidth()\n                .padding(16.dp),\n            horizontalArrangement = Arrangement.SpaceBetween\n        ) {\n            Column {\n                Text(\n                    date,\n                    style = MaterialTheme.typography.bodyMedium,\n                    color = Color.White.copy(alpha = 0.7f)\n                )\n                Spacer(modifier = Modifier.height(4.dp))\n                Text(\n                    distance,\n                    style = MaterialTheme.typography.titleMedium,\n                    fontWeight = FontWeight.Bold,\n                    color = CoralPink\n                )\n            }\n            Column(\n                horizontalAlignment = Alignment.End\n            ) {\n                Text(\n                    duration,\n                    style = MaterialTheme.typography.bodyMedium,\n                    color = Color.White\n                )\n                Spacer(modifier = Modifier.height(4.dp))\n                Text(\n                    pace,\n                    style = MaterialTheme.typography.bodySmall,\n                    color = Color.White.copy(alpha = 0.7f)\n                )\n            }\n        }\n    }\n}\n\n@Composable\nfun ActivitiesView() {\n    Column(\n        modifier = Modifier\n            .fillMaxSize()\n            .padding(16.dp)\n    ) {\n        Text(\n            \"All Activities\",\n            style = MaterialTheme.typography.headlineMedium,\n            fontWeight = FontWeight.Bold,\n            color = Color.White\n        )\n\n        Spacer(modifier = Modifier.height(16.dp))\n\n        // Sample activities\n        repeat(5) { index ->\n            ActivityCard(\n                date = \"${5 - index} days ago\",\n                distance = \"${(5 + index).toFloat()} km\",\n                duration = \"${25 + index * 3}:${15 + index * 2}\",\n                pace = \"5:${20 + index} min/km\"\n            )\n            Spacer(modifier = Modifier.height(8.dp))\n        }\n    }\n}\n\n@Composable\nfun AvatarsView() {\n    Column(\n        modifier = Modifier\n            .fillMaxSize()\n            .padding(16.dp)\n    ) {\n        Text(\n            \"Choose Your Avatar\",\n            style = MaterialTheme.typography.headlineMedium,\n            fontWeight = FontWeight.Bold,\n            color = Color.White\n        )\n\n        Spacer(modifier = Modifier.height(24.dp))\n\n        // Avatar Grid\n        Column(\n            verticalArrangement = Arrangement.spacedBy(16.dp)\n        ) {\n            Row(\n                modifier = Modifier.fillMaxWidth(),\n                horizontalArrangement = Arrangement.spacedBy(16.dp)\n            ) {\n                AvatarItem(Modifier.weight(1f), \"Runner\", Icons.Default.DirectionsRun)\n                AvatarItem(Modifier.weight(1f), \"Athlete\", Icons.Default.FitnessCenter)\n            }\n            Row(\n                modifier = Modifier.fillMaxWidth(),\n                horizontalArrangement = Arrangement.spacedBy(16.dp)\n            ) {\n                AvatarItem(Modifier.weight(1f), \"Champion\", Icons.Default.EmojiEvents)\n                AvatarItem(Modifier.weight(1f), \"Explorer\", Icons.Default.Explore)\n            }\n        }\n    }\n}\n\n@Composable\nfun AvatarItem(modifier: Modifier, name: String, icon: ImageVector) {\n    Card(\n        modifier = modifier.clickable { },\n        colors = CardDefaults.cardColors(\n            containerColor = CardBackground\n        ),\n        shape = RoundedCornerShape(16.dp)\n    ) {\n        Column(\n            modifier = Modifier\n                .fillMaxWidth()\n                .padding(24.dp),\n            horizontalAlignment = Alignment.CenterHorizontally\n        ) {\n            Box(\n                modifier = Modifier\n                    .size(80.dp)\n                    .clip(CircleShape)\n                    .background(\n                        Brush.linearGradient(\n                            colors = listOf(CoralOrange, CoralPink)\n                        )\n                    ),\n                contentAlignment = Alignment.Center\n            ) {\n                Icon(\n                    icon,\n                    contentDescription = null,\n                    modifier = Modifier.size(40.dp),\n                    tint = Color.White\n                )\n            }\n            Spacer(modifier = Modifier.height(12.dp))\n            Text(\n                name,\n                style = MaterialTheme.typography.titleMedium,\n                fontWeight = FontWeight.Bold,\n                color = Color.White\n            )\n        }\n    }\n}\n\n// Run Tracking Data Class\ndata class RunData(\n    val elapsedTimeSeconds: Int = 0,\n    val distanceKm: Float = 0f,\n    val caloriesBurned: Int = 0,\n    val isRunning: Boolean = false,\n    val isPaused: Boolean = false\n)\n\n@Composable\nfun RunTrackingScreen(onStopTracking: () -> Unit) {\n    var runData by remember { mutableStateOf(RunData()) }\n    val scope = rememberCoroutineScope()\n\n    // Timer effect\n    LaunchedEffect(runData.isRunning, runData.isPaused) {\n        if (runData.isRunning && !runData.isPaused) {\n            while (true) {\n                delay(1000L)\n                runData = runData.copy(\n                    elapsedTimeSeconds = runData.elapsedTimeSeconds + 1,\n                    // Simulate distance increase (adjust based on your needs)\n                    // Average running speed: ~10 km/h = 0.00278 km/s\n                    distanceKm = runData.distanceKm + 0.00278f,\n                    // Simulate calorie burn (adjust based on your needs)\n                    // Average: ~60 calories per km\n                    caloriesBurned = (runData.distanceKm * 60).toInt()\n                )\n            }\n        }\n    }\n\n    Column(\n        modifier = Modifier\n            .fillMaxSize()\n            .padding(16.dp),\n        horizontalAlignment = Alignment.CenterHorizontally\n    ) {\n        Spacer(modifier = Modifier.height(32.dp))\n\n        // Large Timer Display\n        Card(\n            modifier = Modifier\n                .fillMaxWidth()\n                .padding(16.dp),\n            colors = CardDefaults.cardColors(\n                containerColor = CardBackground\n            ),\n            shape = RoundedCornerShape(24.dp)\n        ) {\n            Column(\n                modifier = Modifier\n                    .fillMaxWidth()\n                    .padding(32.dp),\n                horizontalAlignment = Alignment.CenterHorizontally\n            ) {\n                Text(\n                    \"Time\",\n                    style = MaterialTheme.typography.bodyLarge,\n                    color = Color.White.copy(alpha = 0.7f)\n                )\n                Spacer(modifier = Modifier.height(8.dp))\n                Text(\n                    formatTime(runData.elapsedTimeSeconds),\n                    style = MaterialTheme.typography.displayLarge,\n                    fontWeight = FontWeight.Bold,\n                    color = CoralPink\n                )\n            }\n        }\n\n        Spacer(modifier = Modifier.height(24.dp))\n\n        // Stats Row\n        Row(\n            modifier = Modifier.fillMaxWidth(),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {\n            RunStatCard(\n                modifier = Modifier.weight(1f),\n                title = \"Distance\",\n                value = String.format(\"%.2f\", runData.distanceKm),\n                unit = \"km\",\n                icon = Icons.Default.DirectionsRun\n            )\n            RunStatCard(\n                modifier = Modifier.weight(1f),\n                title = \"Calories\",\n                value = runData.caloriesBurned.toString(),\n                unit = \"kcal\",\n                icon = Icons.Default.LocalFireDepartment\n            )\n        }\n\n        Spacer(modifier = Modifier.height(24.dp))\n\n        // Pace Display\n        Card(\n            modifier = Modifier.fillMaxWidth(),\n            colors = CardDefaults.cardColors(\n                containerColor = CardBackground\n            ),\n            shape = RoundedCornerShape(16.dp)\n        ) {\n            Row(\n                modifier = Modifier\n                    .fillMaxWidth()\n                    .padding(20.dp),\n                horizontalArrangement = Arrangement.SpaceBetween,\n                verticalAlignment = Alignment.CenterVertically\n            ) {\n                Row(verticalAlignment = Alignment.CenterVertically) {\n                    Icon(\n                        Icons.Default.Speed,\n                        contentDescription = null,\n                        tint = CoralPink,\n                        modifier = Modifier.size(24.dp)\n                    )\n                    Spacer(modifier = Modifier.width(12.dp))\n                    Text(\n                        \"Current Pace\",\n                        style = MaterialTheme.typography.bodyLarge,\n                        color = Color.White.copy(alpha = 0.7f)\n                    )\n                }\n                Text(\n                    calculatePace(runData.distanceKm, runData.elapsedTimeSeconds),\n                    style = MaterialTheme.typography.titleLarge,\n                    fontWeight = FontWeight.Bold,\n                    color = Color.White\n                )\n            }\n        }\n\n        Spacer(modifier = Modifier.weight(1f))\n\n        // Control Buttons\n        Row(\n            modifier = Modifier.fillMaxWidth(),\n            horizontalArrangement = Arrangement.spacedBy(12.dp)\n        ) {\n            // Start/Pause Button\n            Button(\n                onClick = {\n                    if (!runData.isRunning) {\n                        runData = runData.copy(isRunning = true, isPaused = false)\n                    } else {\n                        runData = runData.copy(isPaused = !runData.isPaused)\n                    }\n                },\n                modifier = Modifier\n                    .weight(1f)\n                    .height(60.dp),\n                colors = ButtonDefaults.buttonColors(\n                    containerColor = Color.Transparent\n                ),\n                contentPadding = PaddingValues()\n            ) {\n                Box(\n                    modifier = Modifier\n                        .fillMaxSize()\n                        .background(\n                            Brush.linearGradient(\n                                colors = listOf(CoralOrange, CoralPink)\n                            ),\n                            shape = RoundedCornerShape(12.dp)\n                        ),\n                    contentAlignment = Alignment.Center\n                ) {\n                    Row(\n                        verticalAlignment = Alignment.CenterVertically,\n                        horizontalArrangement = Arrangement.spacedBy(8.dp)\n                    ) {\n                        Icon(\n                            if (!runData.isRunning || runData.isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,\n                            contentDescription = null,\n                            modifier = Modifier.size(28.dp)\n                        )\n                        Text(\n                            if (!runData.isRunning) \"Start\" else if (runData.isPaused) \"Resume\" else \"Pause\",\n                            fontSize = 18.sp,\n                            fontWeight = FontWeight.Bold\n                        )\n                    }\n                }\n            }\n\n            // Stop Button\n            Button(\n                onClick = {\n                    // Here you would save the run data to your database\n                    // Example:\n                    // scope.launch {\n                    //     database.insertRun(\n                    //         distance = runData.distanceKm,\n                    //         duration = runData.elapsedTimeSeconds,\n                    //         calories = runData.caloriesBurned,\n                    //         pace = calculatePace(runData.distanceKm, runData.elapsedTimeSeconds)\n                    //     )\n                    // }\n                    onStopTracking()\n                },\n                modifier = Modifier\n                    .weight(1f)\n                    .height(60.dp),\n                colors = ButtonDefaults.buttonColors(\n                    containerColor = CardBackground\n                ),\n                shape = RoundedCornerShape(12.dp)\n            ) {\n                Row(\n                    verticalAlignment = Alignment.CenterVertically,\n                    horizontalArrangement = Arrangement.spacedBy(8.dp)\n                ) {\n                    Icon(\n                        Icons.Default.Stop,\n                        contentDescription = null,\n                        modifier = Modifier.size(28.dp),\n                        tint = CoralPink\n                    )\n                    Text(\n                        \"Finish\",\n                        fontSize = 18.sp,\n                        fontWeight = FontWeight.Bold,\n                        color = Color.White\n                    )\n                }\n            }\n        }\n\n        Spacer(modifier = Modifier.height(16.dp))\n    }\n}\n\n@Composable\nfun RunStatCard(\n    modifier: Modifier = Modifier,\n    title: String,\n    value: String,\n    unit: String,\n    icon: ImageVector\n) {\n    Card(\n        modifier = modifier,\n        colors = CardDefaults.cardColors(\n            containerColor = CardBackground\n        ),\n        shape = RoundedCornerShape(16.dp)\n    ) {\n        Column(\n            modifier = Modifier\n                .fillMaxWidth()\n                .padding(20.dp),\n            horizontalAlignment = Alignment.CenterHorizontally\n        ) {\n            Icon(\n                icon,\n                contentDescription = null,\n                tint = CoralPink,\n                modifier = Modifier.size(32.dp)\n            )\n            Spacer(modifier = Modifier.height(12.dp))\n            Text(\n                title,\n                style = MaterialTheme.typography.bodyMedium,\n                color = Color.White.copy(alpha = 0.7f)\n            )\n            Spacer(modifier = Modifier.height(4.dp))\n            Row(\n                verticalAlignment = Alignment.Bottom\n            ) {\n                Text(\n                    value,\n                    style = MaterialTheme.typography.headlineMedium,\n                    fontWeight = FontWeight.Bold,\n                    color = Color.White\n                )\n                Spacer(modifier = Modifier.width(4.dp))\n                Text(\n                    unit,\n                    style = MaterialTheme.typography.bodySmall,\n                    color = Color.White.copy(alpha = 0.6f),\n                    modifier = Modifier.padding(bottom = 4.dp)\n                )\n            }\n        }\n    }\n}\n\n// Helper Functions\nfun formatTime(seconds: Int): String {\n    val hours = seconds / 3600\n    val minutes = (seconds % 3600) / 60\n    val secs = seconds % 60\n    return if (hours > 0) {\n        String.format(\"%d:%02d:%02d\", hours, minutes, secs)\n    } else {\n        String.format(\"%02d:%02d\", minutes, secs)\n    }\n}\n\nfun calculatePace(distanceKm: Float, timeSeconds: Int): String {\n    if (distanceKm == 0f) return \"--:--\"\n    val paceSecondsPerKm = timeSeconds / distanceKm\n    val minutes = (paceSecondsPerKm / 60).toInt()\n    val seconds = (paceSecondsPerKm % 60).toInt()\n    return String.format(\"%d:%02d\", minutes, seconds)\n}\n\nenum class Screen(val title: String, val icon: ImageVector) {\n    Dashboard(\"Dashboard\", Icons.Default.Dashboard),\n    Activities(\"Activities\", Icons.Default.DirectionsRun),\n    Avatars(\"Avatars\", Icons.Default.Person)\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/trekapp1/MainActivity.kt b/app/src/main/java/com/example/trekapp1/MainActivity.kt
+--- a/app/src/main/java/com/example/trekapp1/MainActivity.kt	(revision bb184735a5f648de0645101ec080d752ba7d5b62)
++++ b/app/src/main/java/com/example/trekapp1/MainActivity.kt	(date 1763427063650)
+@@ -1,5 +1,6 @@
+ package com.example.trekapp1
+ 
++import android.content.Intent
+ import android.os.Bundle
+ import androidx.activity.ComponentActivity
+ import androidx.activity.compose.setContent
+@@ -21,12 +22,25 @@
+ import androidx.compose.ui.text.font.FontWeight
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.sp
++import com.example.trekfirebase.TrekFirebase.isUserLoggedIn
+ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.launch
+ 
+ class MainActivity : ComponentActivity() {
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
++
++        /* Can use this to add login screen before main screen if not already logged in
++        if (!isUserLoggedIn())
++        {
++            // sends to login page if not already signed in
++            val intent = Intent(this, LoginActivity::class.java)
++            startActivity(intent)
++            finish() // Prevent returning to this activity
++            return
++        }
++        */
++
+         setContent {
+             RunningAppTheme {
+                 MainScreen()
+Index: app/build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>plugins {\n    alias(libs.plugins.android.application)\n    alias(libs.plugins.kotlin.android)\n    alias(libs.plugins.kotlin.compose)\n}\n\nandroid {\n    namespace = \"com.example.trekapp1\"\n    compileSdk = 36\n\n    defaultConfig {\n        applicationId = \"com.example.trekapp1\"\n        minSdk = 29\n        targetSdk = 36\n        versionCode = 1\n        versionName = \"1.0\"\n\n        testInstrumentationRunner = \"androidx.test.runner.AndroidJUnitRunner\"\n        vectorDrawables {\n            useSupportLibrary = true\n        }\n    }\n\n    buildTypes {\n        release {\n            isMinifyEnabled = false\n            proguardFiles(\n                getDefaultProguardFile(\"proguard-android-optimize.txt\"),\n                \"proguard-rules.pro\"\n            )\n        }\n    }\n    compileOptions {\n        sourceCompatibility = JavaVersion.VERSION_11\n        targetCompatibility = JavaVersion.VERSION_11\n    }\n    kotlinOptions {\n        jvmTarget = \"11\"\n    }\n    buildFeatures {\n        compose = true\n    }\n    packaging {\n        resources {\n            excludes += \"/META-INF/{AL2.0,LGPL2.1}\"\n        }\n    }\n}\n\ndependencies {\n    // Core Android\n    implementation(libs.androidx.core.ktx)\n    implementation(libs.androidx.appcompat)\n    implementation(libs.material)\n\n    // Compose BOM (Bill of Materials)\n    implementation(platform(\"androidx.compose:compose-bom:2024.02.00\"))\n    implementation(\"androidx.compose.ui:ui\")\n    implementation(\"androidx.compose.ui:ui-graphics\")\n    implementation(\"androidx.compose.ui:ui-tooling-preview\")\n    implementation(\"androidx.compose.material3:material3\")\n    implementation(\"androidx.compose.material:material-icons-extended\")\n\n    // Activity Compose\n    implementation(\"androidx.activity:activity-compose:1.8.2\")\n\n    // Lifecycle\n    implementation(libs.androidx.lifecycle.livedata.ktx)\n    implementation(libs.androidx.lifecycle.viewmodel.ktx)\n    implementation(\"androidx.lifecycle:lifecycle-runtime-ktx:2.7.0\")\n    implementation(\"androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0\")\n\n    // Navigation\n    implementation(libs.androidx.navigation.fragment.ktx)\n    implementation(libs.androidx.navigation.ui.ktx)\n\n    // Testing\n    testImplementation(libs.junit)\n    androidTestImplementation(libs.androidx.junit)\n    androidTestImplementation(libs.androidx.espresso.core)\n    androidTestImplementation(platform(\"androidx.compose:compose-bom:2024.02.00\"))\n    androidTestImplementation(\"androidx.compose.ui:ui-test-junit4\")\n    debugImplementation(\"androidx.compose.ui:ui-tooling\")\n    debugImplementation(\"androidx.compose.ui:ui-test-manifest\")\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts	(revision bb184735a5f648de0645101ec080d752ba7d5b62)
++++ b/app/build.gradle.kts	(date 1763426331905)
+@@ -2,6 +2,7 @@
+     alias(libs.plugins.android.application)
+     alias(libs.plugins.kotlin.android)
+     alias(libs.plugins.kotlin.compose)
++    id("com.google.gms.google-services")
+ }
+ 
+ android {
+@@ -48,11 +49,18 @@
+ }
+ 
+ dependencies {
++
+     // Core Android
+     implementation(libs.androidx.core.ktx)
+     implementation(libs.androidx.appcompat)
+     implementation(libs.material)
+ 
++    // Firebase
++    implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
++    implementation("com.google.firebase:firebase-analytics")
++    implementation("com.google.firebase:firebase-auth")
++    implementation("com.google.firebase:firebase-firestore")
++
+     // Compose BOM (Bill of Materials)
+     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+     implementation("androidx.compose.ui:ui")
+Index: build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>// Top-level build file where you can add configuration options common to all sub-projects/modules.\n// Top-level build file where you can add configuration options common to all sub-projects/modules.\n// Top-level build file where you can add configuration options common to all sub-projects/modules.\nplugins {\n    alias(libs.plugins.android.application) apply false\n    alias(libs.plugins.kotlin.android) apply false\n    alias(libs.plugins.kotlin.compose) apply false\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/build.gradle.kts b/build.gradle.kts
+--- a/build.gradle.kts	(revision bb184735a5f648de0645101ec080d752ba7d5b62)
++++ b/build.gradle.kts	(date 1763425487590)
+@@ -5,4 +5,5 @@
+     alias(libs.plugins.android.application) apply false
+     alias(libs.plugins.kotlin.android) apply false
+     alias(libs.plugins.kotlin.compose) apply false
++    id("com.google.gms.google-services") version "4.4.4" apply false
+ }
+\ No newline at end of file
+Index: app/src/main/java/com/example/trekapp1/FirebaseConnection.kt
+===================================================================
+diff --git a/app/src/main/java/com/example/trekapp1/FirebaseConnection.kt b/app/src/main/java/com/example/trekapp1/FirebaseConnection.kt
+new file mode 100644
+--- /dev/null	(date 1763429792935)
++++ b/app/src/main/java/com/example/trekapp1/FirebaseConnection.kt	(date 1763429792935)
+@@ -0,0 +1,204 @@
++package com.example.trekfirebase
++
++import android.util.Log
++import com.google.firebase.auth.FirebaseAuth
++import com.google.firebase.firestore.FirebaseFirestore
++
++object TrekFirebase {
++    private fun auth(): FirebaseAuth = FirebaseAuth.getInstance()
++    private fun db(): FirebaseFirestore = FirebaseFirestore.getInstance()
++
++    // Below deals with user accounts
++    fun registerUser(
++        email: String,
++        password: String,
++        onResult: (Boolean, String?) -> Unit
++    ) {
++        val auth = auth()
++        val db = db()
++
++        // Creates User with email and password
++        auth.createUserWithEmailAndPassword(email, password)
++            .addOnCompleteListener { task ->
++                if (task.isSuccessful) {
++                    val uid = auth.currentUser?.uid ?: ""
++                    // creating a document for this user
++                    val userDoc = db.collection("User Data").document(uid)
++                    val initialData = hashMapOf(
++                        "UserUID" to uid
++                    )
++                    // Starts a total document, to collect a cumulation of all health data
++                    userDoc.set(initialData)
++                        .addOnSuccessListener {
++                            val healthDataRef = userDoc.collection("Health Data")
++                            // Inititalize to zero
++                            val totalDoc = hashMapOf(
++                                "steps" to 0,
++                                "miles" to 0.0,
++                                "calories" to 0
++                            )
++                            healthDataRef.document("Total").set(totalDoc)
++                                .addOnSuccessListener {
++                                    onResult(true, null)
++                                }
++                                .addOnFailureListener { e ->
++                                    onResult(false, e.message)
++                                }
++                        }
++                        .addOnFailureListener { e->
++                            onResult(false, e.message)
++                        }
++
++                } else {
++                    onResult(false, task.exception?.message)
++                }
++            }
++    }
++
++    fun loginUser(
++        email: String,
++        password: String,
++        onResult: (Boolean, String?) -> Unit
++    ) {
++        val auth = auth()
++        auth.signInWithEmailAndPassword(email, password)
++            .addOnCompleteListener { task ->
++                if (task.isSuccessful) {
++                    onResult(true, null)
++                } else {
++                    onResult(false, task.exception?.message)
++                }
++            }
++    }
++
++    fun signOut() {
++        val auth = auth()
++        auth.signOut()
++    }
++
++    fun isUserLoggedIn(): Boolean {
++        val auth = auth()
++        return auth.currentUser != null
++    }
++
++    fun getCurrentUserId(): String? {
++        val auth = auth()
++        return auth.currentUser?.uid
++    }
++
++    // Below deals with users data
++
++    // Updates database with health data, takes most recent steps and adds it to the running totals
++    fun logActivity(steps: Long, miles: Double, calories: Long) {
++        val db = db()
++        val uid = getCurrentUserId() ?: return
++        val userDocRef = db.collection("User Data").document(uid)
++        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
++        val dailyRef = userDocRef.collection("Health Data").document(today)
++        val totalRef = userDocRef.collection("Health Data").document("Total")
++
++        db.runTransaction { transaction ->
++
++            // --- READ DAILY FIRST ---
++            val dailySnap = transaction.get(dailyRef)
++            val updatedDailySteps = (dailySnap.getLong("steps") ?: 0L) + steps
++            val updatedDailyMiles = (dailySnap.getDouble("miles") ?: 0.0) + miles
++            val updatedDailyCalories = (dailySnap.getLong("calories") ?: 0L) + calories
++
++
++            // --- READ TOTAL AFTER DAILY ---
++            val totalSnap = transaction.get(totalRef)
++            val updatedTotalSteps = (totalSnap.getLong("steps") ?: 0L) + steps
++            val updatedTotalMiles = (totalSnap.getDouble("miles") ?: 0.0) + miles
++            val updatedTotalCalories = (totalSnap.getLong("calories") ?: 0L) + calories
++
++            // --- WRITE TOTAL ---
++            transaction.set(
++                totalRef, mapOf(
++                    "steps" to updatedTotalSteps,
++                    "miles" to updatedTotalMiles,
++                    "calories" to updatedTotalCalories
++                )
++            )
++
++            // --- WRITE DAILY ---
++            transaction.set(
++                dailyRef, mapOf(
++                    "steps" to updatedDailySteps,
++                    "miles" to updatedDailyMiles,
++                    "calories" to updatedDailyCalories,
++                    "date" to today
++                )
++            )
++
++            null
++        }
++            .addOnSuccessListener { println("Daily & total updated!") }
++            .addOnFailureListener { e -> println("Error updating data: $e") }
++    }
++
++
++    fun getUserTotals(onResult: (steps: Int, miles: Double, calories: Int) -> Unit) {
++        val uid = getCurrentUserId() ?: return
++        Log.d("DEBUG", "Fetching totals for user: $uid")
++
++        FirebaseFirestore.getInstance()     //get user total document
++            .collection("User Data")
++            .document(uid)
++            .collection("Health Data")
++            .document("Total")
++            .addSnapshotListener { document, error ->
++                // Cannot access database
++                if (error != null) {
++                    Log.e("DEBUG", "Listen failed", error)
++                    onResult(-1, -1.0, -1)
++                    return@addSnapshotListener
++                }
++                // Found document and access data
++                if (document != null && document.exists()) {
++                    val steps = (document.get("steps") as? Number)?.toInt() ?: 0
++                    val miles = (document.get("miles") as? Number)?.toDouble() ?: 0.0
++                    val calories = (document.get("calories") as? Number)?.toInt() ?: 0
++                    Log.d("FirestoreDebug", "Totals fetched: steps=$steps, miles=$miles, calories=$calories")
++                    onResult(steps, miles, calories)
++                }
++                // Cannot find the data
++                else {
++                    Log.w("FirestoreDebug", "Total document does not exist for user $uid")
++
++                    onResult(0, 0.0, 0)
++                }
++            }
++    }
++
++    fun getDailyData(date: String, onResult: (steps: Int, miles: Double, calories: Int) -> Unit) {
++        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
++        FirebaseFirestore.getInstance()         // gettimg user daily data
++            .collection("User Data")
++            .document(uid)
++            .collection("Health Data")
++            .document(date)
++            .addSnapshotListener { document, error ->
++                // Cannot access database
++                if (error != null) {
++                    Log.e("DEBUG", "Listen failed", error)
++                    onResult(-1, -1.0, -1)
++                    return@addSnapshotListener
++                }
++                // Found document and data
++                if (document != null && document.exists()) {
++                    val steps = (document.get("steps") as? Number)?.toInt() ?: 0
++                    val miles = (document.get("miles") as? Number)?.toDouble() ?: 0.0
++                    val calories = (document.get("calories") as? Number)?.toInt() ?: 0
++                    onResult(steps, miles, calories)
++                }
++                // No data
++                else {
++                    Log.w("FirestoreDebug", "Daily document does not exist for user $uid")
++
++                    onResult(0, 0.0, 0)
++                }
++            }
++    }
++}
++
+Index: .idea/deploymentTargetSelector.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"deploymentTargetSelector\">\n    <selectionStates>\n      <SelectionState runConfigName=\"app\">\n        <option name=\"selectionMode\" value=\"DROPDOWN\" />\n      </SelectionState>\n      <SelectionState runConfigName=\"trekapp1\">\n        <option name=\"selectionMode\" value=\"DROPDOWN\" />\n      </SelectionState>\n    </selectionStates>\n  </component>\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/deploymentTargetSelector.xml b/.idea/deploymentTargetSelector.xml
+--- a/.idea/deploymentTargetSelector.xml	(revision bb184735a5f648de0645101ec080d752ba7d5b62)
++++ b/.idea/deploymentTargetSelector.xml	(date 1763352200389)
+@@ -5,9 +5,6 @@
+       <SelectionState runConfigName="app">
+         <option name="selectionMode" value="DROPDOWN" />
+       </SelectionState>
+-      <SelectionState runConfigName="trekapp1">
+-        <option name="selectionMode" value="DROPDOWN" />
+-      </SelectionState>
+     </selectionStates>
+   </component>
+ </project>
+\ No newline at end of file
+Index: app/google-services.json
+===================================================================
+diff --git a/app/google-services.json b/app/google-services.json
+new file mode 100644
+--- /dev/null	(date 1763425403698)
++++ b/app/google-services.json	(date 1763425403698)
+@@ -0,0 +1,76 @@
++{
++  "project_info": {
++    "project_number": "653913357283",
++    "project_id": "trek-de67f",
++    "storage_bucket": "trek-de67f.firebasestorage.app"
++  },
++  "client": [
++    {
++      "client_info": {
++        "mobilesdk_app_id": "1:653913357283:android:9f33d63d89a88c32e9fed6",
++        "android_client_info": {
++          "package_name": "com.example.trekapp1"
++        }
++      },
++      "oauth_client": [
++        {
++          "client_id": "653913357283-e0a9djuoj0cbsm5rj3omh5059o25up14.apps.googleusercontent.com",
++          "client_type": 3
++        }
++      ],
++      "api_key": [
++        {
++          "current_key": "AIzaSyCZdmI2tFq3NsoBgaAU5pKtWRyuujjaAms"
++        }
++      ],
++      "services": {
++        "appinvite_service": {
++          "other_platform_oauth_client": [
++            {
++              "client_id": "653913357283-e0a9djuoj0cbsm5rj3omh5059o25up14.apps.googleusercontent.com",
++              "client_type": 3
++            }
++          ]
++        }
++      }
++    },
++    {
++      "client_info": {
++        "mobilesdk_app_id": "1:653913357283:android:d1f26a8f77d9a880e9fed6",
++        "android_client_info": {
++          "package_name": "com.example.trekfirebase"
++        }
++      },
++      "oauth_client": [
++        {
++          "client_id": "653913357283-1kjjaipf5d9kglih1s5sltio141nap7c.apps.googleusercontent.com",
++          "client_type": 1,
++          "android_info": {
++            "package_name": "com.example.trekfirebase",
++            "certificate_hash": "d34a2ff00d96fae410aaf44c475587854661758c"
++          }
++        },
++        {
++          "client_id": "653913357283-e0a9djuoj0cbsm5rj3omh5059o25up14.apps.googleusercontent.com",
++          "client_type": 3
++        }
++      ],
++      "api_key": [
++        {
++          "current_key": "AIzaSyCZdmI2tFq3NsoBgaAU5pKtWRyuujjaAms"
++        }
++      ],
++      "services": {
++        "appinvite_service": {
++          "other_platform_oauth_client": [
++            {
++              "client_id": "653913357283-e0a9djuoj0cbsm5rj3omh5059o25up14.apps.googleusercontent.com",
++              "client_type": 3
++            }
++          ]
++        }
++      }
++    }
++  ],
++  "configuration_version": "1"
++}
+\ No newline at end of file
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"ExternalStorageConfigurationManager\" enabled=\"true\" />\n  <component name=\"ProjectRootManager\" version=\"2\" languageLevel=\"JDK_21\" default=\"true\" project-jdk-name=\"jbr-21\" project-jdk-type=\"JavaSDK\" />\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/misc.xml b/.idea/misc.xml
+--- a/.idea/misc.xml	(revision bb184735a5f648de0645101ec080d752ba7d5b62)
++++ b/.idea/misc.xml	(date 1763351923386)
+@@ -1,4 +1,3 @@
+-<?xml version="1.0" encoding="UTF-8"?>
+ <project version="4">
+   <component name="ExternalStorageConfigurationManager" enabled="true" />
+   <component name="ProjectRootManager" version="2" languageLevel="JDK_21" default="true" project-jdk-name="jbr-21" project-jdk-type="JavaSDK" />
