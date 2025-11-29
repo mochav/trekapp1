@@ -21,6 +21,7 @@ import com.example.trekapp1.ui.theme.CoralOrange
 import com.example.trekapp1.ui.theme.CoralPink
 import com.example.trekapp1.ui.theme.DarkBackground
 import com.example.trekapp1.views.components.ActivityCard
+import com.example.trekapp1.views.components.ActivityCardDirect
 import com.example.trekapp1.views.components.StatCard
 
 /**
@@ -60,7 +61,7 @@ fun DashboardView(
                 modifier = Modifier.weight(1f),
                 title = "Distance",
                 value = stats.distance,
-                unit = "km",
+                unit = "mi",
                 icon = Icons.Default.DirectionsRun
             )
             StatCard(
@@ -83,14 +84,14 @@ fun DashboardView(
                 modifier = Modifier.weight(1f),
                 title = "Calories",
                 value = stats.calories,
-                unit = "kcal",
+                unit = "cal",
                 icon = Icons.Default.LocalFireDepartment
             )
             StatCard(
                 modifier = Modifier.weight(1f),
                 title = "Pace",
                 value = stats.pace,
-                unit = "min/km",
+                unit = "min/mi",
                 icon = Icons.Default.Speed
             )
         }
@@ -151,7 +152,7 @@ fun DashboardView(
 
         // Display recent activity cards
         recentActivities.forEach { activity ->
-            ActivityCard(activity = activity)
+            ActivityCardDirect(activity = activity)
             Spacer(modifier = Modifier.height(8.dp))
         }
     }

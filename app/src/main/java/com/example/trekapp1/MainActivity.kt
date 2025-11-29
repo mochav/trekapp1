@@ -33,6 +33,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.trekapp1.controllers.*
+import com.example.trekapp1.localDatabase.LocalDatabase
 import com.example.trekapp1.localDatabase.SyncManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -81,6 +82,9 @@ class MainActivity : ComponentActivity() {
     /** Sensor for step live data. */
     private lateinit var stepSensor: StepSensorManager
 
+    /** Local database instance. */
+    private lateinit var database: LocalDatabase
+
     /** Launcher to show HealthConnect Permissions UI. */
     private val requestPermissions =
         registerForActivityResult(
@@ -123,6 +127,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
     private fun checkHealthConnectPermissions(){
         //Check and request HealthConnect permissions
         lifecycleScope.launch {
@@ -145,6 +150,7 @@ class MainActivity : ComponentActivity() {
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         // Syncing Firestore to Local Database
         TrekFirebase.getCurrentUserId()?.let { uid ->
             SyncManager.startUserSync(uid)
@@ -152,13 +158,27 @@ class MainActivity : ComponentActivity() {
 
         if (!ensureHealthConnectAvailable()) { return }//if HealthConnect not available, won't be able to get health data, leave
 
+        // Initialize database
+        database = LocalDatabase.getInstance(applicationContext)
+
         // Initialize managers
         healthConnectManager = HealthConnectManager(this)
-        stepSensor = StepSensorManager(this){ stepsSinceRun -> trackingController.updateStepsFromSensor(stepsSinceRun)}//forward sensor updates to tracking controller
+
+        // Initialize activity controller with database
+        activityController = ActivityController(
+            activityDao = database.activityDao(),
+            coroutineScope = lifecycleScope
+        )
+
+        stepSensor = StepSensorManager(this){ stepsSinceRun ->
+            trackingController.updateStepsFromSensor(stepsSinceRun)
+        }//forward sensor updates to tracking controller
 
         // Initialize controllers
-        dashboardController = DashboardController(healthConnectManager)
-        activityController = ActivityController()
+        dashboardController = DashboardController(
+            healthConnectManager = healthConnectManager,
+            activityController = activityController  // Pass activity controller
+        )
         avatarController = AvatarController()
         trackingController = TrackingController(healthConnectManager)
 

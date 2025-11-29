@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.example.trekapp1.dao.ActivityDao
 import com.example.trekapp1.dao.AvatarDao
 import com.example.trekapp1.dao.CoinsDao
 import com.example.trekapp1.dao.DailyDataDao
@@ -11,8 +12,15 @@ import com.example.trekapp1.dao.UserDao
 import com.example.trekapp1.dao.UserTotalsDao
 
 @Database(
-    entities = [LocalUser::class, LocalUserTotals::class, LocalDailyData::class, LocalAvatar::class, LocalCoinBalance::class],
-    version = 1,
+    entities = [
+        LocalUser::class,
+        LocalUserTotals::class,
+        LocalDailyData::class,
+        LocalAvatar::class,
+        LocalCoinBalance::class,
+        LocalActivity::class  // ADD THIS
+    ],
+    version = 2,  // INCREMENT VERSION
     exportSchema = false
 )
 abstract class LocalDatabase : RoomDatabase() {
@@ -21,6 +29,7 @@ abstract class LocalDatabase : RoomDatabase() {
     abstract fun dailyDataDao(): DailyDataDao
     abstract fun avatarDao(): AvatarDao
     abstract fun coinsDao(): CoinsDao
+    abstract fun activityDao(): ActivityDao  // ADD THIS
 
     companion object {
         @Volatile

@@ -122,7 +122,7 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
 
         sessionStats = sessionStats.copy(
             steps = steps.toString(),
-            distance = String.format("%.2f km", distance),
+            distance = String.format("%.2f mi", distance),
             calories = calories.toInt().toString(),
             time = String.format("%02d:%02d", minutes, seconds)
         )
