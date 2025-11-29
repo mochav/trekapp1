@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.example.trekapp1.controllers.*
+import com.example.trekapp1.localDatabase.SyncManager
 import com.example.trekapp1.ui.theme.CardBackground
 import com.example.trekapp1.ui.theme.DarkBackground
 import com.example.trekapp1.ui.theme.RunningAppTheme
@@ -48,6 +49,10 @@ class MainActivity : ComponentActivity() {
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Syncing Firestore to Local Database
+        TrekFirebase.getCurrentUserId()?.let { uid ->
+            SyncManager.startUserSync(uid)
+        }
 
         // Initialize managers
         healthConnectManager = HealthConnectManager(this)

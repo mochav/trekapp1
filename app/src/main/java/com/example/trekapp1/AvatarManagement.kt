@@ -1,8 +1,16 @@
 package com.example.trekapp1
 
+import android.util.Log
 import com.example.trekapp1.TrekFirebase.getCurrentUserId
+import com.example.trekapp1.localDatabase.LocalAvatar
+import com.example.trekapp1.localDatabase.LocalCoinBalance
+import com.example.trekapp1.localDatabase.SyncManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 
 /* File: AvatarManagement.kt
@@ -60,7 +68,27 @@ object AvatarManagement {
 
             "SUCCESS"
         }
-            .addOnSuccessListener { onResult("Purchase Successful") }
+            .addOnSuccessListener {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // update coins locally
+                        val coinsSnap =
+                            userRef.collection("Coins").document("Balance").get().await()
+                        val newCoins = (coinsSnap.getLong("Coins") ?: 0L)
+                        SyncManager.coinsDao().insert(LocalCoinBalance(
+                            uid = uid,
+                            coins = newCoins
+                        ))
+                        SyncManager.avatarDao().insert(LocalAvatar(
+                            fileName = AvatarFile,
+                            locked = false))
+                    } catch (e: Exception) {
+                        Log.e("AvatarManagement", "Error updating local DB after purchase: ${e.message}")
+                    }
+                }
+                onResult("Purchase Successful")
+
+            }
             .addOnFailureListener { e ->
                 when(e.message) {
                     "NOT_ENOUGH_COINS" -> onResult("Not Enough Coins")
