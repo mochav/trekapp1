@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import com.example.trekapp1.views.LoginScreen
+import com.example.trekapp1.views.components.SelectedAvatarDisplay
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -204,14 +206,24 @@ class MainActivity : ComponentActivity() {
             checkHealthConnectPermissions()
         }
 
+        // In your MainActivity.kt, update the login check section to:
+
         setContent {
             RunningAppTheme {
-                MainScreen(
-                    dashboardController = dashboardController,
-                    activityController = activityController,
-                    avatarController = avatarController,
-                    trackingController = trackingController
-                )
+                var isLoggedIn by remember { mutableStateOf(false) }
+
+                if (isLoggedIn) {
+                    MainScreen(
+                        dashboardController = dashboardController,
+                        activityController = activityController,
+                        avatarController = avatarController,
+                        trackingController = trackingController
+                    )
+                } else {
+                    LoginScreen(onLoginSuccess = {
+                        isLoggedIn = true
+                    })
+                }
             }
         }
     }
@@ -275,6 +287,9 @@ fun MainScreen(
                                     if (isTrackingSession) "Back" else "Menu"
                                 )
                             }
+                        },
+                        actions = {
+                            SelectedAvatarDisplay(avatarController)
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = CardBackground
