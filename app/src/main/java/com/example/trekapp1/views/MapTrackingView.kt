@@ -182,8 +182,10 @@ fun MapTrackingView(
         // End Session Button at Bottom
         Button(
             onClick = {
-                trackingController.stopTracking()
-                onEndSession()
+                scope.launch {
+                    trackingController.endSessionAndSave()
+                    onEndSession()
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
