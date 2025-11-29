@@ -1,11 +1,20 @@
 package com.example.trekapp1
 
 import android.util.Log
+import com.example.trekapp1.localDatabase.LocalCoinBalance
+import com.example.trekapp1.localDatabase.LocalDailyData
+import com.example.trekapp1.localDatabase.LocalUser
+import com.example.trekapp1.localDatabase.LocalUserTotals
+import com.example.trekapp1.localDatabase.SyncManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlin.math.floor
 
 
 /* File: FirebaseConnection.kt
@@ -50,7 +59,8 @@ object TrekFirebase {
                     // creating a document for this user
                     val userDoc = db.collection("User Data").document(uid)
                     val initialData = hashMapOf(
-                        "UserUID" to uid
+                        "UserUID" to uid,
+                        "email" to email
                     )
                     // Starts a total document, to collect a cumulation of all health data
                     userDoc.set(initialData)
@@ -60,12 +70,40 @@ object TrekFirebase {
                             val totalDoc = hashMapOf(
                                 "steps" to 0,
                                 "miles" to 0.0,
-                                "calories" to 0
+                                "calories" to 0,
+                                "updatedAt" to com.google.firebase.Timestamp.now()
                             )
                             healthDataRef.document("Total").set(totalDoc)
                                 .addOnSuccessListener {
                                     initializeUserFiles(uid, avatarFiles)
                                     createUserCoins(uid)
+                                    // write user to Room
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        try {
+                                            SyncManager.userDao().insert(
+                                                LocalUser(
+                                                    uid = uid,
+                                                    email = email
+                                                )
+                                            )
+                                            SyncManager.userTotalsDao().insert(
+                                                LocalUserTotals(
+                                                    uid = uid,
+                                                    steps = 0,
+                                                    miles = 0.0,
+                                                    calories = 0
+                                                )
+                                            )
+                                            SyncManager.coinsDao().insert(
+                                                LocalCoinBalance(
+                                                    uid = uid,
+                                                    coins = 0
+                                                )
+                                            )
+                                        } catch (e: Exception) {
+                                            Log.e("TrekFirebase", "Error seeding local DB: ${e.message}")
+                                        }
+                                    }
                                     onResult(true, null)
                                 }
                                 .addOnFailureListener { e ->
@@ -116,7 +154,7 @@ object TrekFirebase {
         val batch = db.batch()
 
         fileNames.forEach { name ->
-            val docRef = lockedCollection.document() // auto ID
+            val docRef = lockedCollection.document(name) // auto ID
             batch.set(docRef, mapOf("fileName" to name))
         }
 
@@ -125,7 +163,7 @@ object TrekFirebase {
             .addOnFailureListener { println("Error: $it") }
     }
 
-    /* Function: Register user
+    /* Function: LoginUser
      * Parameters:
      *      @email: String - users email
      *      @password: String - users password
@@ -219,15 +257,58 @@ object TrekFirebase {
             )
 
             // --- Increment COINS ---
+            val newCoins = floor((steps / 100).toDouble())
             transaction.set(
                 coinsRef,
-                mapOf("coins" to FieldValue.increment(steps)), // 1 coin per step
+                mapOf("coins" to FieldValue.increment(newCoins)), // 1 coin per 100 steps
                 SetOptions.merge()
             )
 
             null
         }
-            .addOnSuccessListener { println("Daily, total, and coins updated!") }
+            .addOnSuccessListener { println("Daily, total, and coins updated!")
+            // Update Local DB
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        // update daily
+                        val id = "${uid}_$today"
+                        val currentDaily = SyncManager.dailyDataDao().getDailyFlow(uid, today)
+                        val dailySnap = userDocRef.collection("Health Data").document(today).get().await()
+                        val totalSnap = userDocRef.collection("Health Data").document("Total").get().await()
+                        if (dailySnap.exists()) {
+                            val dsteps = (dailySnap.get("steps") as? Number)?.toLong() ?: 0L
+                            val dmiles = (dailySnap.get("miles") as? Number)?.toDouble() ?: 0.0
+                            val dcal = (dailySnap.get("calories") as? Number)?.toLong() ?: 0L
+                            SyncManager.dailyDataDao().insert(
+                                LocalDailyData(
+                                    id = id,
+                                    uid = uid,
+                                    date = today,
+                                    steps = dsteps,
+                                    miles = dmiles,
+                                    calories = dcal
+                                )
+                            )
+                        }
+                        // update totals
+                        if (totalSnap.exists()) {
+                            val tsteps = (totalSnap.get("steps") as? Number)?.toLong() ?: 0L
+                            val tmiles = (totalSnap.get("miles") as? Number)?.toDouble() ?: 0.0
+                            val tcal = (totalSnap.get("calories") as? Number)?.toLong() ?: 0L
+                            val updatedAt = (totalSnap.get("updatedAt") as? com.google.firebase.Timestamp)?.seconds ?: System.currentTimeMillis() / 1000
+                            SyncManager.userTotalsDao().insert(LocalUserTotals(uid = uid, steps = tsteps, miles = tmiles, calories = tcal, updatedAt = updatedAt))
+                        }
+                        // update coins
+                        val coinsSnap = userDocRef.collection("Coins").document("Balance").get().await()
+                        if (coinsSnap.exists()) {
+                            val coins = (coinsSnap.get("Coins") as? Number)?.toLong() ?: 0L
+                            SyncManager.coinsDao().insert(LocalCoinBalance(uid = uid, coins = coins))
+                        }
+                    } catch (e: Exception) {
+                        Log.e("TrekFirebase", "Error updating local DB after logActivity: ${e.message}")
+                    }
+                }
+            }
             .addOnFailureListener { e -> println("Error updating data: $e") }
     }
 
@@ -252,6 +333,17 @@ object TrekFirebase {
         val uid = getCurrentUserId() ?: return
         Log.d("DEBUG", "Fetching totals for user: $uid")
 
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val local = SyncManager.userTotalsDao().getTotalsFlow(uid)
+                CoroutineScope(Dispatchers.IO).launch {
+                    val db = SyncManager.userTotalsDao()
+                    val maybe = db.getTotalsFlow(uid)
+                }
+            } catch (e: Exception) {
+                // continue to listener
+            }
+        }
         FirebaseFirestore.getInstance()     //get user total document
             .collection("User Data")
             .document(uid)
@@ -269,6 +361,19 @@ object TrekFirebase {
                     val steps = (document.get("steps") as? Number)?.toInt() ?: 0
                     val miles = (document.get("miles") as? Number)?.toDouble() ?: 0.0
                     val calories = (document.get("calories") as? Number)?.toInt() ?: 0
+                    // update local DB
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val updatedAt =
+                            (document.get("updatedAt") as? com.google.firebase.Timestamp)?.seconds
+                                ?: (System.currentTimeMillis() / 1000)
+                        SyncManager.userTotalsDao().insert(LocalUserTotals(
+                            uid = uid,
+                            steps = steps.toLong(),
+                            miles = miles,
+                            calories = calories.toLong(),
+                            updatedAt = updatedAt
+                        ))
+                    }
                     Log.d("FirestoreDebug", "Totals fetched: steps=$steps, miles=$miles, calories=$calories")
                     onResult(steps, miles, calories)
                 }
@@ -316,6 +421,18 @@ object TrekFirebase {
                     val steps = (document.get("steps") as? Number)?.toInt() ?: 0
                     val miles = (document.get("miles") as? Number)?.toDouble() ?: 0.0
                     val calories = (document.get("calories") as? Number)?.toInt() ?: 0
+                    // update local DB
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val id = "${uid}_$date"
+                        SyncManager.dailyDataDao().insert(LocalDailyData(
+                            id = id,
+                            uid = uid,
+                            date = date,
+                            steps = steps.toLong(),
+                            miles = miles,
+                            calories = calories.toLong())
+                        )
+                    }
                     onResult(steps, miles, calories)
                 }
                 // No data
@@ -336,18 +453,26 @@ object TrekFirebase {
      *      }
      */
     suspend fun getUserFiles(userId: String): Pair<List<String>, List<String>> {
-        val db = FirebaseFirestore.getInstance()
+        try {
+            SyncManager.fetchUserFilesOnce(userId)
+            val locked = SyncManager.avatarDao().getLockedFlow()
+            val unlocked = SyncManager.avatarDao().getUnlockedFlow()
 
-        val lockedRef = db.collection("User Data").document(userId).collection("locked")
-        val unlockedRef = db.collection("User Data").document(userId).collection("unlocked")
+            val db = FirebaseFirestore.getInstance()
 
-        val lockedSnap = lockedRef.get().await()
-        val unlockedSnap = unlockedRef.get().await()
+            val lockedRef = db.collection("User Data").document(userId).collection("locked")
+            val unlockedRef = db.collection("User Data").document(userId).collection("unlocked")
 
-        val lockedFiles = lockedSnap.documents.mapNotNull { it.getString("fileName") }
-        val unlockedFiles = unlockedSnap.documents.mapNotNull { it.getString("fileName") }
+            val lockedSnap = lockedRef.get().await()
+            val unlockedSnap = unlockedRef.get().await()
 
-        return Pair(lockedFiles, unlockedFiles)
+            val lockedFiles = lockedSnap.documents.mapNotNull { it.getString("fileName") }
+            val unlockedFiles = unlockedSnap.documents.mapNotNull { it.getString("fileName") }
+            return Pair(lockedFiles, unlockedFiles)
+
+        } catch (e: Exception) {
+            return Pair(emptyList(), emptyList())
+        }
     }
 
 }
