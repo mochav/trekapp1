@@ -1,5 +1,7 @@
 package com.example.trekapp1
 
+import com.example.trekapp1.views.LoginScreen
+import com.example.trekapp1.views.components.SelectedAvatarDisplay
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -19,6 +21,7 @@ import com.example.trekapp1.utils.Screen
 import com.example.trekapp1.views.*
 import com.example.trekapp1.views.components.NavigationDrawerContent
 import kotlinx.coroutines.launch
+
 
 /**
  * Main activity for the Trek running app.
@@ -40,6 +43,8 @@ class MainActivity : ComponentActivity() {
     /** Controller for tracking sessions. */
     private lateinit var trackingController: TrackingController
 
+
+
     /**
      * Called when the activity is created.
      * Initializes managers, controllers, and sets up the UI.
@@ -58,14 +63,24 @@ class MainActivity : ComponentActivity() {
         avatarController = AvatarController()
         trackingController = TrackingController()
 
+        // In your MainActivity.kt, update the login check section to:
+
         setContent {
             RunningAppTheme {
-                MainScreen(
-                    dashboardController = dashboardController,
-                    activityController = activityController,
-                    avatarController = avatarController,
-                    trackingController = trackingController
-                )
+                var isLoggedIn by remember { mutableStateOf(false) }
+
+                if (isLoggedIn) {
+                    MainScreen(
+                        dashboardController = dashboardController,
+                        activityController = activityController,
+                        avatarController = avatarController,
+                        trackingController = trackingController
+                    )
+                } else {
+                    LoginScreen(onLoginSuccess = {
+                        isLoggedIn = true
+                    })
+                }
             }
         }
     }
@@ -129,6 +144,9 @@ fun MainScreen(
                                     if (isTrackingSession) "Back" else "Menu"
                                 )
                             }
+                        },
+                        actions = {
+                            SelectedAvatarDisplay(avatarController)
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
                             containerColor = CardBackground
