@@ -185,8 +185,8 @@ object TrekFirebase {
      * COIN RETURN RATIO: Current - 1:1 coins to steps
      */
     fun logActivity(steps: Long, miles: Double, calories: Long) {
-        val db = com.example.trekapp1.TrekFirebase.db()
-        val uid = com.example.trekapp1.TrekFirebase.getCurrentUserId() ?: return
+        val db = db()
+        val uid = getCurrentUserId() ?: return
         val userDocRef = db.collection("User Data").document(uid)
         val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
 

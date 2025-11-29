@@ -3,17 +3,19 @@ package com.example.trekapp1.controllers
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.example.trekapp1.HealthConnectManager
 import com.example.trekapp1.models.TrackingSessionStats
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 /**
  * Controller for managing active tracking sessions.
  * Handles starting/stopping tracking and updating real-time statistics.
  */
-class TrackingController {
+class TrackingController(private val healthConnectManager: HealthConnectManager){
 
     /**
      * Current tracking session statistics.
@@ -34,6 +36,17 @@ class TrackingController {
     /** Total elapsed seconds in current session. */
     private var elapsedSeconds = 0
 
+    private var sessionStartTime: Instant? = null
+
+    /** Starting values for sessions */
+    private var startingSteps: Long? = null
+    private var startingCalories: Double? = null
+
+    /** Current session steps from the step sensor. */
+    private var baseSensorSteps: Long? = null
+    /** Current session steps from the step sensor. */
+    private var currSessionSteps: Long = 0
+
     /**
      * Starts a new tracking session.
      * Begins updating statistics every second.
@@ -42,12 +55,17 @@ class TrackingController {
      */
     fun startTracking(scope: CoroutineScope) {
         if (isTracking) return
-
         isTracking = true
         elapsedSeconds = 0
         sessionStats = TrackingSessionStats()
+        sessionStartTime = Instant.now()
+
+        baseSensorSteps = null
+        currSessionSteps = 0
 
         trackingJob = scope.launch {
+            startingSteps = healthConnectManager.readTodaySteps()
+            startingCalories = healthConnectManager.readTodayCalories()
             while (isTracking) {
                 delay(1000)
                 elapsedSeconds++
@@ -67,19 +85,54 @@ class TrackingController {
     }
 
     /**
-     * Updates session statistics based on elapsed time.
-     * TODO: Replace simulated data with real sensor data.
+     * Writes session to HealthConnect. Should be called from UI after "End Session"
+     * */
+    suspend fun endSessionAndSave() {
+        val start = sessionStartTime
+        val end = Instant.now()
+        stopTracking()
+        if (start != null) {
+            val steps = sessionStats.steps.toLongOrNull() ?: 0L
+            val calories = sessionStats.calories.toDoubleOrNull() ?: 0.0
+            healthConnectManager.writeExerciseSession(start= start, end = end, steps = steps, calories = calories)
+        }
+        sessionStartTime = null
+    }
+
+    fun updateStepsFromSensor(stepsSinceRun: Long){
+        if(!isTracking) return
+        val base = baseSensorSteps ?: run{
+            baseSensorSteps = stepsSinceRun
+            stepsSinceRun
+        }
+        currSessionSteps = (stepsSinceRun - base).coerceAtLeast(0L)
+    }
+
+    /**
+     * Updates session statistics based on HealthConnect data.
+     * Real sensor data added.
      */
-    private fun updateStats() {
+    private suspend fun updateStats() {
         val minutes = elapsedSeconds / 60
         val seconds = elapsedSeconds % 60
 
+        val steps = currSessionSteps
+        val distance = steps * 0.00072 //(average man 0.76m/step ; average woman 0.67m/step -> average overall 0.72m/step = 0.00072km)
+        val calories = steps * 0.0465 //0.0465 avg calories burned for ppl between 160 to 200 lb
+
         sessionStats = sessionStats.copy(
-            steps = (elapsedSeconds * 2).toString(), // TODO: Get from step counter
+            steps = steps.toString(),
+            distance = String.format("%.2f km", distance),
+            calories = calories.toInt().toString(),
+            time = String.format("%02d:%02d", minutes, seconds)
+        )
+
+        /**sessionStats = sessionStats.copy(
+            steps = "trying to modify ", // TODO: Get from step counter
             distance = String.format("%.2f km", elapsedSeconds * 0.001), // TODO: Get from GPS
             calories = (elapsedSeconds / 10).toString(), // TODO: Calculate from activity
             time = String.format("%02d:%02d", minutes, seconds)
-        )
+        )*/
     }
 
     /**
@@ -89,6 +142,9 @@ class TrackingController {
     fun reset() {
         stopTracking()
         elapsedSeconds = 0
+        startingSteps = null
+        startingCalories = null
         sessionStats = TrackingSessionStats()
+
     }
 }
