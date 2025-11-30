@@ -21,7 +21,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.trekapp1.controllers.ActivityController
 import com.example.trekapp1.controllers.TrackingController
+import com.example.trekapp1.localDatabase.SyncManager
+import com.example.trekapp1.models.ActivityRecord
 import com.example.trekapp1.ui.theme.CoralOrange
 import com.example.trekapp1.ui.theme.CoralPink
 import com.example.trekapp1.ui.theme.DarkBackground
@@ -43,6 +46,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MapTrackingView(
     trackingController: TrackingController,
+    activityController: ActivityController,
     onEndSession: () -> Unit
 ) {
     val context = LocalContext.current
@@ -184,6 +188,12 @@ fun MapTrackingView(
             onClick = {
                 scope.launch {
                     trackingController.endSessionAndSave()
+                    val record = trackingController.buildActivityRecord()
+
+                    activityController.addActivity(record)
+
+                    SyncManager.saveActivity(record)
+
                     onEndSession()
                 }
             },
@@ -226,3 +236,4 @@ fun MapTrackingView(
         }
     }
 }
+
