@@ -187,8 +187,9 @@ class MainActivity : ComponentActivity() {
             healthConnectManager = healthConnectManager,
             activityController = activityController  // Pass activity controller
         )
-        avatarController = AvatarController()
-
+        avatarController = AvatarController(
+            coroutineScope = lifecycleScope
+        )
         // FIXED: Pass both context and healthConnectManager
         trackingController = TrackingController(
             context = applicationContext,
