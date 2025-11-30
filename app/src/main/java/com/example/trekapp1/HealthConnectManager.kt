@@ -8,18 +8,27 @@ package com.example.trekapp1
  * */
 import android.annotation.SuppressLint
 import android.content.Context
+import android.health.connect.datatypes.Device
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
+import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.AggregateRequest
-import androidx.health.connect.client.time.TimeRangeFilter
 import androidx.health.connect.client.units.Energy
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import androidx.health.platform.client.exerciseroute.ExerciseRoute
+import java.time.Duration
+import java.time.Instant
+import java.time.ZoneOffset
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.ui.platform.LocalContext
+import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.units.Length
 
 
 class HealthConnectManager(private val context: Context) {
@@ -107,5 +116,17 @@ class HealthConnectManager(private val context: Context) {
             metadata = Metadata.manualEntry()
         )
         healthConnectClient.insertRecords(listOf(sessionRecord, stepsRecord, caloriesRecord))
+    }
+    suspend fun readTodayDistance(): Double {
+        val timeRange = todayTimeRange()
+        val response = healthConnectClient.aggregate(
+            AggregateRequest(
+                metrics = setOf(DistanceRecord.DISTANCE_TOTAL),
+                timeRangeFilter = timeRange
+            )
+        )
+
+        val distance: Length? = response[DistanceRecord.DISTANCE_TOTAL]
+        return distance?.inMiles ?: 0.0
     }
 }

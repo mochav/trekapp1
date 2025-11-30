@@ -2,6 +2,7 @@ package com.example.trekapp1.localDatabase
 
 import android.content.Context
 import android.util.Log
+import com.example.trekapp1.models.ActivityRecord
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
@@ -197,6 +198,24 @@ object SyncManager {
             val fname = d.getString("fileName") ?: d.id
             dao.insert(LocalAvatar(fileName = fname, locked = false))
         }
+    }
+    suspend fun saveActivity(activity: ActivityRecord) {
+        val uid = currentUid ?: return
+
+        // Save to Firestore
+        firestore.collection("User Data")
+            .document(uid)
+            .collection("Activities")
+            .document(activity.id)
+            .set(
+                mapOf(
+                    "id" to activity.id,
+                    "date" to activity.date,
+                    "distance" to activity.distance,
+                    "duration" to activity.duration,
+                    "pace" to activity.pace
+                )
+            )
     }
 
     // Utility: run a local read quickly for UI

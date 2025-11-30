@@ -153,6 +153,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        activityController = ActivityController(
+            activityDao = LocalDatabase.getInstance(this).activityDao(),
+            coroutineScope = lifecycleScope
+        )
+
         // Syncing Firestore to Local Database
         TrekFirebase.getCurrentUserId()?.let { uid ->
             SyncManager.startUserSync(uid)
@@ -307,6 +312,7 @@ fun MainScreen(
                         // Show tracking view when session is active
                         MapTrackingView(
                             trackingController = trackingController,
+                            activityController = activityController,
                             onEndSession = { isTrackingSession = false }
                         )
                     } else {

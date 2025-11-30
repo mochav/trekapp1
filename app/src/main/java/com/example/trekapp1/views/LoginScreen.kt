@@ -18,6 +18,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.trekapp1.TrekFirebase
+import com.example.trekapp1.TrekFirebase.registerUser
+import com.example.trekapp1.localDatabase.SyncManager
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
@@ -94,7 +97,19 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
                 // Login Button
                 Button(
-                    onClick = { onLoginSuccess() },
+                    onClick = {
+                        TrekFirebase.loginUser(email, password) { success, errorMsg ->
+                            if (success) {
+                                TrekFirebase.getCurrentUserId()?.let { uid ->
+                                    SyncManager.startUserSync(uid)
+                                }
+                                onLoginSuccess()
+                            } else {
+                                // Handle login failure
+                                println("Login failed: $errorMsg")
+                            }
+                        }
+                         },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -112,7 +127,18 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
                 // Sign Up Button
                 Button(
-                    onClick = { onLoginSuccess() },
+                    onClick = {
+                        registerUser(email, password) { success, errorMsg ->
+                            if (success) {
+                                TrekFirebase.getCurrentUserId()?.let { uid ->
+                                    SyncManager.startUserSync(uid)
+                                }
+                                onLoginSuccess()
+                            } else {
+                                // Handle login failure
+                                println("Login failed: $errorMsg")
+                            }
+                        } },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
