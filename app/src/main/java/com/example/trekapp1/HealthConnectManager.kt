@@ -56,8 +56,7 @@ class HealthConnectManager(private val context: Context) {
                 metrics = setOf(StepsRecord.COUNT_TOTAL),
                 timeRangeFilter = timeRange
             )
-        )
-        //could be null if there’s no data for today
+        ) //could be null if there’s no data for today
         return response[StepsRecord.COUNT_TOTAL] ?: 0L
     }//reading today's steps total
 
