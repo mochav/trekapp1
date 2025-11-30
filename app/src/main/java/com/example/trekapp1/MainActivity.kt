@@ -61,6 +61,7 @@ import com.example.trekapp1.views.MapTrackingView
 import com.example.trekapp1.views.components.NavigationDrawerContent
 import kotlinx.coroutines.launch
 
+
 /**
  * Main activity for the Trek running app.
  * Manages controllers and navigation between screens.

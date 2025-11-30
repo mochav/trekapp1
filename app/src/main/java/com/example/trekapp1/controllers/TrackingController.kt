@@ -1,10 +1,19 @@
 package com.example.trekapp1.controllers
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
+import android.os.Looper
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.core.content.ContextCompat
 import com.example.trekapp1.HealthConnectManager
 import com.example.trekapp1.models.TrackingSessionStats
+import com.google.android.gms.location.*
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -30,7 +39,34 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
     var isTracking by mutableStateOf(false)
         private set
 
-    /** Coroutine job for the tracking timer. */
+    // ========== ADD THESE NEW PROPERTIES ==========
+    // Current user location for map
+    var currentLocation by mutableStateOf<LatLng?>(null)
+        private set
+
+    // Route points for drawing path on map
+    val routePoints = mutableStateListOf<LatLng>()
+
+    // Google Location Services
+    private val fusedLocationClient: FusedLocationProviderClient =
+        LocationServices.getFusedLocationProviderClient(context)
+
+    private val locationRequest = LocationRequest.Builder(
+        Priority.PRIORITY_HIGH_ACCURACY,
+        1000L // Update every 1 second
+    ).build()
+
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            locationResult.lastLocation?.let { location ->
+                val latLng = LatLng(location.latitude, location.longitude)
+                currentLocation = latLng
+                routePoints.add(latLng)
+            }
+        }
+    }
+    // ========== END NEW PROPERTIES ==========
+
     private var trackingJob: Job? = null
 
     /** Total elapsed seconds in current session. */
@@ -55,6 +91,7 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
      */
     fun startTracking(scope: CoroutineScope) {
         if (isTracking) return
+
         isTracking = true
         elapsedSeconds = 0
         sessionStats = TrackingSessionStats()
@@ -62,6 +99,25 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
 
         baseSensorSteps = null
         currSessionSteps = 0
+
+        // ========== ADD THIS: Start GPS updates ==========
+        routePoints.clear()
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                fusedLocationClient.requestLocationUpdates(
+                    locationRequest,
+                    locationCallback,
+                    Looper.getMainLooper()
+                )
+            } catch (e: SecurityException) {
+                // Permission error
+            }
+        }
+        // ========== END GPS updates ==========
 
         trackingJob = scope.launch {
             startingSteps = healthConnectManager.readTodaySteps()
@@ -82,6 +138,10 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
         isTracking = false
         trackingJob?.cancel()
         trackingJob = null
+
+        // ========== ADD THIS: Stop GPS updates ==========
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        // ========== END ==========
     }
 
     /**
@@ -145,6 +205,9 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
         startingSteps = null
         startingCalories = null
         sessionStats = TrackingSessionStats()
-
+        // ========== ADD THIS ==========
+        routePoints.clear()
+        currentLocation = null
+        // ========== END ==========
     }
 }
