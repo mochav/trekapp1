@@ -25,7 +25,10 @@ import java.time.Instant
  * Controller for managing active tracking sessions.
  * Handles starting/stopping tracking and updating real-time statistics.
  */
-class TrackingController(private val healthConnectManager: HealthConnectManager){
+class TrackingController(
+    private val context: Context,  // ADD THIS PARAMETER
+    private val healthConnectManager: HealthConnectManager
+) {
 
     /**
      * Current tracking session statistics.
@@ -40,7 +43,6 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
     var isTracking by mutableStateOf(false)
         private set
 
-    // ========== ADD THESE NEW PROPERTIES ==========
     // Current user location for map
     var currentLocation by mutableStateOf<LatLng?>(null)
         private set
@@ -66,7 +68,6 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
             }
         }
     }
-    // ========== END NEW PROPERTIES ==========
 
     private var trackingJob: Job? = null
 
@@ -101,7 +102,7 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
         baseSensorSteps = null
         currSessionSteps = 0
 
-        // ========== ADD THIS: Start GPS updates ==========
+        // Start GPS updates
         routePoints.clear()
         if (ContextCompat.checkSelfPermission(
                 context,
@@ -118,7 +119,6 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
                 // Permission error
             }
         }
-        // ========== END GPS updates ==========
 
         trackingJob = scope.launch {
             startingSteps = healthConnectManager.readTodaySteps()
@@ -140,9 +140,8 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
         trackingJob?.cancel()
         trackingJob = null
 
-        // ========== ADD THIS: Stop GPS updates ==========
+        // Stop GPS updates
         fusedLocationClient.removeLocationUpdates(locationCallback)
-        // ========== END ==========
     }
 
     /**
@@ -194,15 +193,7 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
             calories = calories.toInt().toString(),
             time = String.format("%02d:%02d", minutes, seconds)
         )
-
-        /**sessionStats = sessionStats.copy(
-            steps = "trying to modify ", // TODO: Get from step counter
-            distance = String.format("%.2f km", elapsedSeconds * 0.001), // TODO: Get from GPS
-            calories = (elapsedSeconds / 10).toString(), // TODO: Calculate from activity
-            time = String.format("%02d:%02d", minutes, seconds)
-        )*/
     }
-
 
     fun buildActivityRecord(): ActivityRecord {
         return ActivityRecord(
@@ -213,7 +204,6 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
             pace = calculatePace(sessionStats.time, sessionStats.distance)
         )
     }
-
 
     private fun calculatePace(duration: String, distance: String): String {
         // distance format example: "0.42 mi", so extract numeric part
@@ -228,6 +218,7 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
         val pace = totalMin / dist
         return String.format("%.2f min/mi", pace)
     }
+
     /**
      * Resets the tracking session.
      * Stops tracking and clears all statistics.
@@ -238,9 +229,7 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
         startingSteps = null
         startingCalories = null
         sessionStats = TrackingSessionStats()
-        // ========== ADD THIS ==========
         routePoints.clear()
         currentLocation = null
-        // ========== END ==========
     }
 }

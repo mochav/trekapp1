@@ -188,7 +188,12 @@ class MainActivity : ComponentActivity() {
             activityController = activityController  // Pass activity controller
         )
         avatarController = AvatarController()
-        trackingController = TrackingController(healthConnectManager)
+
+        // FIXED: Pass both context and healthConnectManager
+        trackingController = TrackingController(
+            context = applicationContext,
+            healthConnectManager = healthConnectManager
+        )
 
 
         // Request ACTIVITY_RECOGNITION (physical activity) permission, then start sensor and HealthConnect permissions UI
