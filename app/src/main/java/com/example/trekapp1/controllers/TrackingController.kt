@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.core.content.ContextCompat
 import com.example.trekapp1.HealthConnectManager
+import com.example.trekapp1.models.ActivityRecord
 import com.example.trekapp1.models.TrackingSessionStats
 import com.google.android.gms.location.*
 import com.google.android.gms.maps.model.LatLng
@@ -154,7 +155,14 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
         if (start != null) {
             val steps = sessionStats.steps.toLongOrNull() ?: 0L
             val calories = sessionStats.calories.toDoubleOrNull() ?: 0.0
-            healthConnectManager.writeExerciseSession(start= start, end = end, steps = steps, calories = calories)
+            if (steps > 0 || calories > 0.0) {
+                healthConnectManager.writeExerciseSession(
+                    start = start,
+                    end = end,
+                    steps = steps,
+                    calories = calories
+                )
+            }
         }
         sessionStartTime = null
     }
@@ -195,6 +203,31 @@ class TrackingController(private val healthConnectManager: HealthConnectManager)
         )*/
     }
 
+
+    fun buildActivityRecord(): ActivityRecord {
+        return ActivityRecord(
+            id = System.currentTimeMillis().toString(),
+            date = Instant.now().toString(),
+            distance = sessionStats.distance,
+            duration = sessionStats.time,
+            pace = calculatePace(sessionStats.time, sessionStats.distance)
+        )
+    }
+
+
+    private fun calculatePace(duration: String, distance: String): String {
+        // distance format example: "0.42 mi", so extract numeric part
+        val dist = distance.split(" ")[0].toDoubleOrNull() ?: 0.0
+        if (dist <= 0.0) return "--"
+
+        val parts = duration.split(":")
+        val minutes = parts[0].toInt()
+        val seconds = parts[1].toInt()
+        val totalMin = minutes + seconds / 60.0
+
+        val pace = totalMin / dist
+        return String.format("%.2f min/mi", pace)
+    }
     /**
      * Resets the tracking session.
      * Stops tracking and clears all statistics.

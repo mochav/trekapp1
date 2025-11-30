@@ -156,6 +156,8 @@ class ActivityController(
     suspend fun refreshActivities() {
         loadActivities()
     }
+
+    companion object
 }
 
 // Extension functions for converting between LocalActivity and ActivityRecord

@@ -5,9 +5,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import com.example.trekapp1.HealthConnectManager
 import com.example.trekapp1.models.ActivityRecord
+import com.example.trekapp1.localDatabase.SyncManager
+import com.example.trekapp1.models.DailyStats
 import com.example.trekapp1.models.DashboardStats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
 
 /**
  * Controller for managing dashboard statistics.
@@ -200,3 +203,5 @@ private data class ActivityTotals(
     val totalDistance: String,
     val averagePace: String
 )
+
+private fun SyncManager.updateDailyStats(stats: DailyStats) {}

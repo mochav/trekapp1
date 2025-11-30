@@ -23,11 +23,18 @@ import com.example.trekapp1.ui.theme.CoralOrange
 import com.example.trekapp1.ui.theme.CoralPink
 import com.example.trekapp1.ui.theme.DarkBackground
 import com.example.trekapp1.ui.theme.CardBackground
+import com.example.trekapp1.TrekFirebase
+import com.example.trekapp1.TrekFirebase.registerUser
+import com.example.trekapp1.localDatabase.SyncManager
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+
+    val darkBg = Color(0xFF1A1A1A)
+    val coralOrange = Color(0xFFFF6B35)
+    val coralPink = Color(0xFFFF8C69)
 
     Box(
         modifier = Modifier
@@ -51,7 +58,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Trek Title with gradient
+                // Trek Title
                 Text(
                     text = "Trek",
                     fontSize = 48.sp,
@@ -122,7 +129,19 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
                 // Login Button - EXACTLY like "Start Run"
                 Button(
-                    onClick = { onLoginSuccess() },
+                    onClick = {
+                        TrekFirebase.loginUser(email, password) { success, errorMsg ->
+                            if (success) {
+                                TrekFirebase.getCurrentUserId()?.let { uid ->
+                                    SyncManager.startUserSync(uid)
+                                }
+                                onLoginSuccess()
+                            } else {
+                                // Handle login failure
+                                println("Login failed: $errorMsg")
+                            }
+                        }
+                         },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(60.dp),
@@ -153,7 +172,18 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
 
                 // Sign Up Button - Same style, reversed gradient
                 Button(
-                    onClick = { onLoginSuccess() },
+                    onClick = {
+                        registerUser(email, password) { success, errorMsg ->
+                            if (success) {
+                                TrekFirebase.getCurrentUserId()?.let { uid ->
+                                    SyncManager.startUserSync(uid)
+                                }
+                                onLoginSuccess()
+                            } else {
+                                // Handle login failure
+                                println("Login failed: $errorMsg")
+                            }
+                        } },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(60.dp),
