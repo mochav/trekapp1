@@ -1,51 +1,87 @@
 package com.example.trekapp1.controllers
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
+import android.os.Looper
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.core.content.ContextCompat
 import com.example.trekapp1.models.TrackingSessionStats
+import com.google.android.gms.location.*
+import com.google.android.gms.maps.model.LatLng
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * Controller for managing active tracking sessions.
- * Handles starting/stopping tracking and updating real-time statistics.
- */
-class TrackingController {
+class TrackingController(private val context: Context) {  // ADD context parameter
 
-    /**
-     * Current tracking session statistics.
-     * Exposed as Compose state for automatic recomposition.
-     */
     var sessionStats by mutableStateOf(TrackingSessionStats())
         private set
 
-    /**
-     * Whether a tracking session is currently active.
-     */
     var isTracking by mutableStateOf(false)
         private set
 
-    /** Coroutine job for the tracking timer. */
-    private var trackingJob: Job? = null
+    // ========== ADD THESE NEW PROPERTIES ==========
+    // Current user location for map
+    var currentLocation by mutableStateOf<LatLng?>(null)
+        private set
 
-    /** Total elapsed seconds in current session. */
+    // Route points for drawing path on map
+    val routePoints = mutableStateListOf<LatLng>()
+
+    // Google Location Services
+    private val fusedLocationClient: FusedLocationProviderClient =
+        LocationServices.getFusedLocationProviderClient(context)
+
+    private val locationRequest = LocationRequest.Builder(
+        Priority.PRIORITY_HIGH_ACCURACY,
+        1000L // Update every 1 second
+    ).build()
+
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            locationResult.lastLocation?.let { location ->
+                val latLng = LatLng(location.latitude, location.longitude)
+                currentLocation = latLng
+                routePoints.add(latLng)
+            }
+        }
+    }
+    // ========== END NEW PROPERTIES ==========
+
+    private var trackingJob: Job? = null
     private var elapsedSeconds = 0
 
-    /**
-     * Starts a new tracking session.
-     * Begins updating statistics every second.
-     *
-     * @param scope CoroutineScope in which to launch the tracking job.
-     */
     fun startTracking(scope: CoroutineScope) {
         if (isTracking) return
 
         isTracking = true
         elapsedSeconds = 0
         sessionStats = TrackingSessionStats()
+
+        // ========== ADD THIS: Start GPS updates ==========
+        routePoints.clear()
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                fusedLocationClient.requestLocationUpdates(
+                    locationRequest,
+                    locationCallback,
+                    Looper.getMainLooper()
+                )
+            } catch (e: SecurityException) {
+                // Permission error
+            }
+        }
+        // ========== END GPS updates ==========
 
         trackingJob = scope.launch {
             while (isTracking) {
@@ -56,39 +92,35 @@ class TrackingController {
         }
     }
 
-    /**
-     * Stops the current tracking session.
-     * Cancels the tracking job and preserves final statistics.
-     */
     fun stopTracking() {
         isTracking = false
         trackingJob?.cancel()
         trackingJob = null
+
+        // ========== ADD THIS: Stop GPS updates ==========
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        // ========== END ==========
     }
 
-    /**
-     * Updates session statistics based on elapsed time.
-     * TODO: Replace simulated data with real sensor data.
-     */
     private fun updateStats() {
         val minutes = elapsedSeconds / 60
         val seconds = elapsedSeconds % 60
 
         sessionStats = sessionStats.copy(
-            steps = (elapsedSeconds * 2).toString(), // TODO: Get from step counter
-            distance = String.format("%.2f km", elapsedSeconds * 0.001), // TODO: Get from GPS
-            calories = (elapsedSeconds / 10).toString(), // TODO: Calculate from activity
+            steps = (elapsedSeconds * 2).toString(), // Keep this - your classmate will fix
+            distance = String.format("%.2f km", elapsedSeconds * 0.001), // Keep this
+            calories = (elapsedSeconds / 10).toString(), // Keep this
             time = String.format("%02d:%02d", minutes, seconds)
         )
     }
 
-    /**
-     * Resets the tracking session.
-     * Stops tracking and clears all statistics.
-     */
     fun reset() {
         stopTracking()
         elapsedSeconds = 0
         sessionStats = TrackingSessionStats()
+        // ========== ADD THIS ==========
+        routePoints.clear()
+        currentLocation = null
+        // ========== END ==========
     }
 }

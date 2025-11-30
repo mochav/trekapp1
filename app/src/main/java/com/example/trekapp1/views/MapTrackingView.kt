@@ -28,18 +28,14 @@ import com.example.trekapp1.ui.theme.DarkBackground
 import com.example.trekapp1.views.components.CompactStatCard
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
 import com.google.android.gms.maps.MapView
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MarkerOptions
+import com.google.android.gms.maps.model.PolylineOptions
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import kotlinx.coroutines.launch
 
-/**
- * Map tracking view for active running/walking sessions.
- * Displays real-time statistics and a map showing the user's location and route.
- *
- * @param trackingController Controller managing the tracking session.
- * @param onEndSession Callback when user ends the tracking session.
- */
 @Composable
 fun MapTrackingView(
     trackingController: TrackingController,
@@ -51,17 +47,36 @@ fun MapTrackingView(
     var hasLocationPermission by remember { mutableStateOf(false) }
     val sessionStats = trackingController.sessionStats
 
-    /**
-     * Location permission launcher for requesting GPS access.
-     */
+    var mapView by remember { mutableStateOf<MapView?>(null) }
+    var googleMap by remember { mutableStateOf<GoogleMap?>(null) }
+    val currentLocation = trackingController.currentLocation
+    val routePoints = trackingController.routePoints
+    var userMarker by remember { mutableStateOf<com.google.android.gms.maps.model.Marker?>(null) }
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+        if (hasLocationPermission) {
+            try {
+                googleMap?.isMyLocationEnabled = true
+                fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                    location?.let {
+                        val userLocation = LatLng(it.latitude, it.longitude)
+                        googleMap?.animateCamera(
+                            CameraUpdateFactory.newLatLngZoom(userLocation, 17f)
+                        )
+                    }
+                }
+                trackingController.startTracking(scope)
+            } catch (e: SecurityException) {
+                // Handle error
+            }
+        }
     }
 
-    // Request location permissions and start tracking when view appears
     LaunchedEffect(Unit) {
         locationPermissionLauncher.launch(
             arrayOf(
@@ -69,10 +84,60 @@ fun MapTrackingView(
                 Manifest.permission.ACCESS_COARSE_LOCATION
             )
         )
-        trackingController.startTracking(scope)
     }
 
-    // Stop tracking when view is disposed
+    // Update camera AND marker when user moves
+    LaunchedEffect(currentLocation) {
+        currentLocation?.let { location ->
+            googleMap?.let { map ->
+                // Move camera to follow user
+                map.animateCamera(
+                    CameraUpdateFactory.newLatLngZoom(location, 17f)
+                )
+
+                // Update user position marker (blue dot replacement)
+                if (userMarker == null) {
+                    userMarker = map.addMarker(
+                        MarkerOptions()
+                            .position(location)
+                            .title("You are here")
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+                    )
+                } else {
+                    userMarker?.position = location
+                }
+            }
+        }
+    }
+
+    // Draw route line
+    LaunchedEffect(routePoints.size) {
+        if (routePoints.size > 1) {
+            googleMap?.let { map ->
+                // Clear old route
+                map.clear()
+
+                // Re-add user marker
+                currentLocation?.let { loc ->
+                    userMarker = map.addMarker(
+                        MarkerOptions()
+                            .position(loc)
+                            .title("You are here")
+                            .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
+                    )
+                }
+
+                // Draw route
+                map.addPolyline(
+                    PolylineOptions()
+                        .addAll(routePoints)
+                        .color(android.graphics.Color.parseColor("#FF6B35"))
+                        .width(10f)
+                )
+            }
+        }
+    }
+
     DisposableEffect(Unit) {
         onDispose {
             trackingController.stopTracking()
@@ -84,13 +149,12 @@ fun MapTrackingView(
             .fillMaxSize()
             .background(DarkBackground)
     ) {
-        // Stats Section at Top
+        // Stats Section
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Stats Row 1: Steps and Distance
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -111,7 +175,6 @@ fun MapTrackingView(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Stats Row 2: Calories and Time
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -131,7 +194,7 @@ fun MapTrackingView(
             }
         }
 
-        // Map View - Takes remaining space
+        // Map View
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -143,33 +206,38 @@ fun MapTrackingView(
                     MapView(ctx).apply {
                         onCreate(Bundle())
                         onResume()
-                        getMapAsync { googleMap ->
-                            // Configure map UI settings
-                            googleMap.uiSettings.apply {
+                        mapView = this
+
+                        getMapAsync { map ->
+                            googleMap = map
+
+                            map.uiSettings.apply {
                                 isZoomControlsEnabled = true
                                 isCompassEnabled = true
                                 isMyLocationButtonEnabled = true
                             }
 
-                            // Enable location tracking if permission granted
                             if (hasLocationPermission) {
                                 try {
-                                    googleMap.isMyLocationEnabled = true
+                                    map.isMyLocationEnabled = true
+
                                     fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                                         location?.let {
                                             val userLocation = LatLng(it.latitude, it.longitude)
-                                            googleMap.addMarker(
+                                            map.animateCamera(
+                                                CameraUpdateFactory.newLatLngZoom(userLocation, 17f)
+                                            )
+                                            // Add initial marker
+                                            userMarker = map.addMarker(
                                                 MarkerOptions()
                                                     .position(userLocation)
-                                                    .title("Trek Started")
-                                            )
-                                            googleMap.animateCamera(
-                                                CameraUpdateFactory.newLatLngZoom(userLocation, 15f)
+                                                    .title("You are here")
+                                                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE))
                                             )
                                         }
                                     }
                                 } catch (e: SecurityException) {
-                                    // Handle permission error
+                                    // Handle error
                                 }
                             }
                         }
@@ -177,9 +245,30 @@ fun MapTrackingView(
                 },
                 modifier = Modifier.fillMaxSize()
             )
+
+            if (currentLocation == null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CircularProgressIndicator(color = CoralOrange)
+                        Text(
+                            "Getting your location...",
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
         }
 
-        // End Session Button at Bottom
+        // End Session Button
         Button(
             onClick = {
                 trackingController.stopTracking()

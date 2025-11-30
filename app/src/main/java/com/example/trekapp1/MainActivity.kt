@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
         dashboardController = DashboardController(healthConnectManager)
         activityController = ActivityController()
         avatarController = AvatarController()
-        trackingController = TrackingController()
+        trackingController = TrackingController(this)
 
         // In your MainActivity.kt, update the login check section to:
 
