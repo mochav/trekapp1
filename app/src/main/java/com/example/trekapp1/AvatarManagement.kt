@@ -36,9 +36,11 @@ object AvatarManagement {
         val db = db()
         val uid = getCurrentUserId() ?: return onResult("User not logged in")
 
+        Log.d("AvatarManagement", "Starting purchase: $AvatarFile for $AvatarCost coins")
+
         val userRef = db.collection("User Data").document(uid)
         val coinsRef = userRef.collection("Coins").document("Balance")
-        val lockedRef = userRef.collection( "Locked").document(AvatarFile)
+        val lockedRef = userRef.collection("Locked").document(AvatarFile)
         val unlockedRef = userRef.collection("Unlocked").document(AvatarFile)
 
         db.runTransaction { transaction ->
@@ -46,29 +48,38 @@ object AvatarManagement {
             val coinSnap = transaction.get(coinsRef)
             val currentCoins = coinSnap.getLong("Coins") ?: 0L
 
+            Log.d("AvatarManagement", "Current coins: $currentCoins, Cost: $AvatarCost")
+
             // If not enough coins
             if (currentCoins < AvatarCost) {
+                Log.d("AvatarManagement", "Not enough coins!")
                 throw Exception("NOT_ENOUGH_COINS")
             }
 
             // Get locked avatar
             val lockedSnap = transaction.get(lockedRef)
             if (!lockedSnap.exists()) {
+                Log.d("AvatarManagement", "Avatar not found in Locked collection")
                 throw Exception("AVATAR_PREVIOUSLY_BOUGHT")
             }
 
             // Decrement User Coins
             transaction.update(coinsRef, "Coins", currentCoins - AvatarCost)
+            Log.d("AvatarManagement", "Deducted coins, new balance: ${currentCoins - AvatarCost}")
 
-            // Write to unlocked
-            transaction.set(unlockedRef, AvatarFile)
+            // Write to unlocked - THIS WAS THE BUG! Must use a Map, not a String
+            val avatarData = mapOf("fileName" to AvatarFile)
+            transaction.set(unlockedRef, avatarData)
+            Log.d("AvatarManagement", "Added to Unlocked collection")
 
             // Delete from locked
             transaction.delete(lockedRef)
+            Log.d("AvatarManagement", "Removed from Locked collection")
 
             "SUCCESS"
         }
             .addOnSuccessListener {
+                Log.d("AvatarManagement", "Transaction successful!")
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         // update coins locally
@@ -87,9 +98,9 @@ object AvatarManagement {
                     }
                 }
                 onResult("Purchase Successful")
-
             }
             .addOnFailureListener { e ->
+                Log.e("AvatarManagement", "Transaction failed", e)
                 when(e.message) {
                     "NOT_ENOUGH_COINS" -> onResult("Not Enough Coins")
                     "AVATAR_PREVIOUSLY_BOUGHT" -> onResult("Avatar Already Bought")
