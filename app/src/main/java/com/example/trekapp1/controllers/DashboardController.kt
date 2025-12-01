@@ -52,9 +52,8 @@ class DashboardController(
         error = null
 
         try {
-            // Get data from HealthConnect
+            // Get steps from HealthConnect
             val steps = healthConnectManager.readTodaySteps()
-            val calories = healthConnectManager.readTodayCalories()
 
             // Calculate totals from recent activities (only the ones shown on dashboard)
             val recentActivities = activityController.getRecentActivities(count = 2)
@@ -63,7 +62,7 @@ class DashboardController(
             stats = DashboardStats(
                 distance = activityTotals.totalDistance,
                 steps = if (steps != null && steps > 0) steps.toString() else "--",
-                calories = if (calories != null && calories > 0) String.format("%.0f", calories) else "--",
+                calories = activityTotals.totalCalories,  // FIXED: Use calories from activities
                 pace = activityTotals.averagePace
             )
         } catch (e: Exception) {
@@ -75,7 +74,7 @@ class DashboardController(
     }
 
     /**
-     * Calculates total distance and average pace from all activities.
+     * Calculates total distance, calories, and average pace from all activities.
      *
      * @param activities List of activity records.
      * @return ActivityTotals containing calculated totals.
@@ -85,12 +84,14 @@ class DashboardController(
             if (activities.isEmpty()) {
                 return@withContext ActivityTotals(
                     totalDistance = "--",
+                    totalCalories = "--",
                     averagePace = "--"
                 )
             }
 
             var totalMiles = 0.0
             var totalMinutes = 0.0
+            var totalCalories = 0.0
             var validActivities = 0
 
             activities.forEach { activity ->
@@ -106,6 +107,10 @@ class DashboardController(
                     totalMinutes += durationMinutes
                     validActivities++
                 }
+
+                // Using standard formula: calories ≈ distance (miles) * 100
+                // (This is a simplified estimate; actual calories depend on weight, pace, etc.)
+                totalCalories += distanceValue * 100
             }
 
             // Calculate average pace (min/mi)
@@ -123,8 +128,16 @@ class DashboardController(
                 "--"
             }
 
+            // Show calories as "--" if no valid data
+            val caloriesStr = if (totalCalories > 0) {
+                String.format("%.0f", totalCalories)
+            } else {
+                "--"
+            }
+
             ActivityTotals(
                 totalDistance = distanceStr,
+                totalCalories = caloriesStr,
                 averagePace = averagePace
             )
         }
@@ -201,6 +214,7 @@ class DashboardController(
  */
 private data class ActivityTotals(
     val totalDistance: String,
+    val totalCalories: String,  // ADDED: calories field
     val averagePace: String
 )
 
